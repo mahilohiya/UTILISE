@@ -9,11 +9,10 @@ public class SemesterWindow extends JFrame {
         setTitle(semName + " Subjects");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
 
-        // Load background image
         ImageIcon icon = new ImageIcon("books/Library.jpg");
         Image backgroundImage = icon.getImage();
 
-        // Background panel with image
+
         JPanel backgroundPanel = new JPanel() {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
@@ -22,7 +21,6 @@ public class SemesterWindow extends JFrame {
         };
         backgroundPanel.setLayout(new GridBagLayout());
 
-        // Panel to hold buttons
         JPanel buttonPanel = new JPanel(new GridLayout(2, 2, 20, 20));
         buttonPanel.setOpaque(false);
 
@@ -44,7 +42,6 @@ public class SemesterWindow extends JFrame {
         setVisible(true);
     }
 
-    // Open PDF file for the selected subject
     void openBook(String subject) {
         String path = "books/" + subject + ".pdf";
         File file = new File(path);
