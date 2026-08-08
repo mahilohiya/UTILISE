@@ -1,29 +1,137 @@
-# RAMS - Ramaiah Automated Management System
+# RAMS — Ramaiah Automated Management System
 
-Designed and deployed a full-stack, multi-tenant campus automation platform (Next.js, PostgreSQL, Redis, Docker) serving semester-wise library management, automated fine/reservation workflows, and an AI-assisted search/recommendation layer for 3,000+ simulated users; implemented CI/CD, RBAC, and observability from day one.
+Full-stack campus automation platform for M.S. Ramaiah Institute of Technology: semester-wise library management, automated fine/reservation workflows, RBAC, and search — built with Next.js 15, PostgreSQL, Prisma, Redis, and Docker.
 
-## Architecture Decisions
+## Architecture
 
-- **Monorepo (Turborepo + pnpm)**: Enables sharing types, UI components, and configurations across the frontend and backend, ensuring consistency and faster builds through caching.
-- **Frontend (Next.js 15 App Router + tRPC)**: Chosen for its robust server-side rendering, seamless full-stack type safety with tRPC, and excellent developer experience. It allows for a single deploy target (Vercel) which is highly resume-friendly.
-- **Database (PostgreSQL + Prisma)**: Provides a strong relational model necessary for complex library transactions (issues, reservations, fines) with Prisma offering excellent type safety and migration management. Designed with multi-tenancy in mind (department-scoped rows).
-- **Caching & Background Jobs (Redis + BullMQ)**: Redis handles fast session lookups and rate limiting, while BullMQ manages critical scheduled tasks like fine calculations and overdue reminders without blocking the main request thread.
-- **Authentication (NextAuth.js v5)**: Secure, flexible authentication supporting credentials (restricted to `@msrit.edu`) and JWT sessions, integrated tightly with our RBAC system.
-- **Observability & CI/CD**: Sentry for error tracking, structured logging with Pino, and GitHub Actions for automated linting, type-checking, and testing against real database containers.
+```mermaid
+flowchart TB
+  Client[Next.js 15 App Router]
+  API[Server Actions + API Routes]
+  DB[(PostgreSQL + Prisma)]
+  Redis[(Redis)]
+  Queue[BullMQ Workers]
+  Auth[NextAuth.js v5]
+  Client --> API
+  API --> Auth
+  API --> DB
+  API --> Redis
+  Queue --> Redis
+  Queue --> DB
+```
 
-## Folder Structure
+## Tech Stack
+
+| Tool | Why |
+|------|-----|
+| **Turborepo + pnpm** | Monorepo with shared types and cached builds |
+| **Next.js 15** | SSR, App Router, server actions — single deploy target |
+| **PostgreSQL + Prisma** | Relational model for issues, reservations, fines |
+| **NextAuth.js v5** | JWT sessions, credentials auth, RBAC integration |
+| **Redis + BullMQ** | Rate limiting, background jobs (fines, reminders) |
+| **TanStack Query** | Server state, optimistic updates |
+| **Tailwind + shadcn-style tokens** | MSRIT maroon/gold institutional branding |
+| **Vitest** | Unit tests for fines, RBAC, demand alerts |
+| **GitHub Actions** | CI: lint, typecheck, test, build |
+| **Docker Compose** | Local Postgres + Redis |
+
+## Features
+
+### Core Library Automation
+- Semester-wise book catalog with department/semester filters
+- Book issue/return via barcode
+- Reservation queue with 24-hour hold on return
+- Automated fine calculation (grace period, cap)
+- Role-based dashboards (Student, Faculty, Librarian, Admin)
+
+### Real-Life Problem Solving
+- Lost book workflow (schema + claims)
+- Digital access logging for copyright compliance
+- Book request pipeline for out-of-stock titles
+- High-demand / low-stock alerts for librarians
+- Audit log for login and critical actions
+
+### DevOps & Reliability
+- Health check endpoint (`/api/health`)
+- Docker Compose for local infra
+- CI pipeline with Postgres service container
+- `.env.example` with all configuration
+
+## Quick Start
+
+### Prerequisites
+- Node.js 18+
+- pnpm 9+
+- Docker
+
+### 1. Start infrastructure
+
+```bash
+cd rams-platform
+docker compose up -d
+```
+
+### 2. Install & setup database
+
+```bash
+pnpm install
+cp .env.example apps/web/.env.local
+cp .env.example packages/database/.env   # set DATABASE_URL
+
+pnpm db:push
+pnpm db:seed
+```
+
+### 3. Run development server
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000)
+
+### Demo Accounts
+
+| Email | Role | Password |
+|-------|------|----------|
+| student@msrit.edu | Student | password123 |
+| faculty@msrit.edu | Faculty | password123 |
+| librarian@msrit.edu | Librarian | password123 |
+| admin@msrit.edu | Admin | password123 |
+
+## Project Structure
 
 ```text
 rams-platform/
-├── apps/
-│   ├── web/                # Next.js frontend application (App Router)
-│   └── api/                # Optional separate backend (if not using Next.js API routes)
-├── packages/
-│   ├── ui/                 # Shared React components (shadcn/ui + Tailwind)
-│   ├── database/           # Prisma schema, migrations, and generated client
-│   └── config/             # Shared ESLint, TypeScript, and Prettier configs
-├── .github/
-│   └── workflows/          # CI/CD pipelines (GitHub Actions)
-├── docker-compose.yml      # Local infrastructure (Postgres, Redis)
-└── package.json            # Root workspace configuration
+├── apps/web/                 # Next.js frontend + API routes
+│   ├── app/                  # App Router pages & server actions
+│   ├── components/           # UI components (DashboardLayout, Providers)
+│   ├── lib/                  # RBAC, automation, utils
+│   └── __tests__/            # Vitest unit tests
+├── packages/database/        # Prisma schema, migrations, seed
+├── docker-compose.yml        # Postgres + Redis
+└── .github/workflows/ci.yml  # CI pipeline
 ```
+
+## Scalability Notes
+
+- **Stateless JWT sessions** — horizontal API scaling without sticky sessions
+- **Redis caching** — session lookups, rate limiting, job queues
+- **Background jobs** — fine calculation decoupled from request path
+- **Department-scoped rows** — multi-tenancy ready for multiple colleges
+- **Read replicas** — Prisma supports read/write splitting at scale
+- **CDN** — book cover images via S3/R2 (schema supports `coverImageUrl`)
+
+## Scripts
+
+```bash
+pnpm dev          # Start dev server
+pnpm build        # Production build
+pnpm test         # Run unit tests
+pnpm db:seed      # Seed demo data (40 books, 8 departments)
+pnpm db:migrate   # Run Prisma migrations
+```
+
+## License
+
+MIT — Built for MSRIT portfolio demonstration.

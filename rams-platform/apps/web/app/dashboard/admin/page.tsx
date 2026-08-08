@@ -1,102 +1,145 @@
-"use client";
-
 import DashboardLayout from "@/components/DashboardLayout";
-import { BarChart3, TrendingUp, BookOpen, Users, AlertTriangle, DollarSign } from "lucide-react";
+import { auth } from "@/auth";
+import { prisma } from "@/lib/db";
+import { computeDemandAlerts } from "@/lib/automation/fines";
+import { BookOpen, Users, AlertTriangle, DollarSign, BarChart3, TrendingUp } from "lucide-react";
+import { runFineCalculationJob } from "@/app/actions/book";
 
-// Mock analytics data
-const departmentStats = [
-    { dept: "CSE", issued: 340, returned: 310, overdue: 18 },
-    { dept: "ISE", issued: 220, returned: 200, overdue: 12 },
-    { dept: "ECE", issued: 190, returned: 178, overdue: 8 },
-    { dept: "ME", issued: 150, returned: 140, overdue: 6 },
-    { dept: "AIML", issued: 130, returned: 126, overdue: 3 },
-    { dept: "EEE", issued: 100, returned: 95, overdue: 4 },
-    { dept: "CE", issued: 85, returned: 80, overdue: 2 },
-    { dept: "BT", issued: 60, returned: 58, overdue: 1 },
-];
+export default async function AdminDashboard() {
+  const session = await auth();
 
-const topBooksIssued = [
-    { title: "Introduction to Algorithms", issueCount: 78 },
-    { title: "Engineering Mathematics", issueCount: 65 },
-    { title: "Operating System Concepts", issueCount: 52 },
-    { title: "Computer Networks", issueCount: 48 },
-    { title: "Digital Logic Design", issueCount: 41 },
-];
+  const [
+    totalBooks,
+    totalStudents,
+    activeIssues,
+    finesAgg,
+    deptStats,
+    topBooks,
+    demandData,
+    unread,
+  ] = await Promise.all([
+    prisma.book.aggregate({ _sum: { totalCopies: true }, _count: true }),
+    prisma.user.count({ where: { role: "STUDENT" } }),
+    prisma.issueRecord.count({ where: { status: { in: ["ACTIVE", "OVERDUE"] } } }),
+    prisma.issueRecord.aggregate({ where: { fineStatus: "UNPAID" }, _sum: { fineAmount: true } }),
+    prisma.department.findMany({
+      include: {
+        _count: { select: { books: true, users: true } },
+      },
+    }),
+    prisma.issueRecord.groupBy({
+      by: ["bookCopyId"],
+      _count: true,
+      orderBy: { _count: { bookCopyId: "desc" } },
+      take: 5,
+    }),
+    prisma.book.findMany({
+      include: {
+        _count: { select: { reservations: true } },
+      },
+      take: 20,
+    }),
+    prisma.notification.count({ where: { userId: session!.user.id, read: false } }),
+  ]);
 
-export default function AdminDashboard() {
-    const totalBooks = 45320;
-    const totalStudents = 3240;
-    const activeIssues = 1275;
-    const totalFinesMonth = 12450;
+  const topBookDetails = await Promise.all(
+    topBooks.map(async (t) => {
+      const copy = await prisma.bookCopy.findUnique({
+        where: { id: t.bookCopyId },
+        include: { book: true },
+      });
+      return { title: copy?.book.title ?? "Unknown", count: t._count };
+    })
+  );
 
-    return (
-        <DashboardLayout role="ADMIN">
-            <div className="max-w-6xl">
-                <h1 className="text-2xl font-serif font-bold text-slate-800 mb-1">Admin Analytics</h1>
-                <p className="text-slate-500 mb-8">System-wide library performance and insights.</p>
+  const demandAlerts = computeDemandAlerts(
+    demandData.map((b) => ({
+      bookId: b.id,
+      title: b.title,
+      reservations: b._count.reservations,
+      requests: 0,
+      availableCopies: b.availableCopies,
+    }))
+  );
 
-                {/* KPI Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
-                    <KPICard icon={<BookOpen className="h-5 w-5 text-blue-600" />} label="Total Books" value={totalBooks.toLocaleString()} change="+120 this month" bg="bg-blue-50" />
-                    <KPICard icon={<Users className="h-5 w-5 text-emerald-600" />} label="Active Students" value={totalStudents.toLocaleString()} change="+45 this week" bg="bg-emerald-50" />
-                    <KPICard icon={<AlertTriangle className="h-5 w-5 text-amber-600" />} label="Active Issues" value={activeIssues.toLocaleString()} change="54 overdue" bg="bg-amber-50" />
-                    <KPICard icon={<DollarSign className="h-5 w-5 text-red-600" />} label="Fines (This Month)" value={`₹${totalFinesMonth.toLocaleString()}`} change="+₹2,300 vs last" bg="bg-red-50" />
+  return (
+    <DashboardLayout role="ADMIN" userName={session!.user.name} unreadCount={unread}>
+      <div className="max-w-6xl">
+        <h1 className="text-2xl font-serif font-bold text-slate-800 mb-1">Admin Analytics</h1>
+        <p className="text-slate-500 mb-8">System-wide library performance and insights.</p>
+
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-10">
+          <KPICard icon={<BookOpen className="h-5 w-5 text-blue-600" />} label="Total Copies" value={(totalBooks._sum.totalCopies ?? 0).toLocaleString()} bg="bg-blue-50" />
+          <KPICard icon={<Users className="h-5 w-5 text-emerald-600" />} label="Students" value={totalStudents.toLocaleString()} bg="bg-emerald-50" />
+          <KPICard icon={<AlertTriangle className="h-5 w-5 text-amber-600" />} label="Active Issues" value={activeIssues.toLocaleString()} bg="bg-amber-50" />
+          <KPICard icon={<DollarSign className="h-5 w-5 text-red-600" />} label="Unpaid Fines" value={`₹${(finesAgg._sum.fineAmount ?? 0).toFixed(0)}`} bg="bg-red-50" />
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-8 mb-10">
+          <section className="bg-white rounded-xl border p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <BarChart3 className="h-5 w-5 text-primary" /> Department Utilization
+            </h2>
+            <div className="space-y-3">
+              {deptStats.map((d) => (
+                <div key={d.id} className="flex items-center gap-3">
+                  <span className="text-sm font-medium w-12">{d.code}</span>
+                  <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden">
+                    <div className="h-full bg-primary rounded-full" style={{ width: `${Math.min(100, d._count.books * 3)}%` }} />
+                  </div>
+                  <span className="text-sm text-slate-500 w-20 text-right">{d._count.books} titles</span>
                 </div>
-
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    {/* Department-wise breakdown */}
-                    <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
-                        <h2 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                            <BarChart3 className="h-5 w-5 text-primary" /> Department Utilization
-                        </h2>
-                        <div className="space-y-3">
-                            {departmentStats.map((d) => (
-                                <div key={d.dept} className="flex items-center gap-3">
-                                    <span className="text-sm font-medium text-slate-600 w-12">{d.dept}</span>
-                                    <div className="flex-1 bg-slate-100 rounded-full h-6 overflow-hidden relative">
-                                        <div
-                                            className="h-full bg-gradient-to-r from-primary to-primary/70 rounded-full transition-all"
-                                            style={{ width: `${(d.issued / 350) * 100}%` }}
-                                        />
-                                    </div>
-                                    <span className="text-sm text-slate-500 w-16 text-right">{d.issued} issued</span>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-
-                    {/* Top Books */}
-                    <section className="bg-white rounded-xl border border-slate-100 shadow-sm p-6">
-                        <h2 className="text-lg font-semibold text-slate-700 mb-4 flex items-center gap-2">
-                            <TrendingUp className="h-5 w-5 text-secondary" /> Most Borrowed Books
-                        </h2>
-                        <div className="space-y-4">
-                            {topBooksIssued.map((book, idx) => (
-                                <div key={book.title} className="flex items-center gap-4">
-                                    <span className={`text-lg font-bold w-8 ${idx === 0 ? "text-secondary" : "text-slate-400"}`}>#{idx + 1}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-serif text-slate-800 truncate">{book.title}</p>
-                                    </div>
-                                    <span className="text-sm font-medium text-slate-500">{book.issueCount} issues</span>
-                                </div>
-                            ))}
-                        </div>
-                    </section>
-                </div>
+              ))}
             </div>
-        </DashboardLayout>
-    );
+          </section>
+
+          <section className="bg-white rounded-xl border p-6">
+            <h2 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <TrendingUp className="h-5 w-5 text-secondary" /> Most Issued Copies
+            </h2>
+            <div className="space-y-4">
+              {topBookDetails.map((book, idx) => (
+                <div key={book.title} className="flex items-center gap-4">
+                  <span className={`text-lg font-bold w-8 ${idx === 0 ? "text-secondary" : "text-slate-400"}`}>#{idx + 1}</span>
+                  <p className="flex-1 font-serif truncate">{book.title}</p>
+                  <span className="text-sm text-slate-500">{book.count} issues</span>
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {demandAlerts.length > 0 && (
+          <section className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-10">
+            <h2 className="font-semibold text-amber-900 mb-3">High Demand, Low Stock Alerts</h2>
+            <ul className="space-y-2">
+              {demandAlerts.slice(0, 5).map((a) => (
+                <li key={a.bookId} className="text-sm text-amber-800">
+                  {a.title} — {a.reservations} reservations, {a.availableCopies} copies left
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        <form action={runFineCalculationJob} className="bg-white rounded-xl border p-6">
+          <h2 className="font-semibold mb-2">Automation Jobs</h2>
+          <p className="text-sm text-slate-500 mb-4">Run nightly fine calculation manually for demo.</p>
+          <button type="submit" className="bg-primary text-white px-5 py-2 rounded-lg text-sm font-medium">
+            Run Fine Calculation
+          </button>
+        </form>
+      </div>
+    </DashboardLayout>
+  );
 }
 
-function KPICard({ icon, label, value, change, bg }: { icon: React.ReactNode; label: string; value: string; change: string; bg: string }) {
-    return (
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-            <div className="flex items-center justify-between mb-3">
-                <div className={`p-2.5 rounded-lg ${bg}`}>{icon}</div>
-            </div>
-            <p className="text-2xl font-bold text-slate-800">{value}</p>
-            <p className="text-sm text-slate-500">{label}</p>
-            <p className="text-xs text-slate-400 mt-1">{change}</p>
-        </div>
-    );
+function KPICard({ icon, label, value, bg }: { icon: React.ReactNode; label: string; value: string; bg: string }) {
+  return (
+    <div className="bg-white rounded-xl border p-5">
+      <div className={`p-2.5 rounded-lg ${bg} inline-block mb-3`}>{icon}</div>
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-sm text-slate-500">{label}</p>
+    </div>
+  );
 }

@@ -53,6 +53,14 @@ enum ClaimStatus {
 
 // --- Academic Structure ---
 
+model AcademicYear {
+  id        String   @id @default(cuid())
+  label     String   @unique // e.g. "2025-26"
+  startDate DateTime
+  endDate   DateTime
+  isActive  Boolean  @default(false)
+}
+
 model Department {
   id        String     @id @default(cuid())
   name      String     @unique
@@ -64,7 +72,7 @@ model Department {
 
 model Semester {
   id           String     @id @default(cuid())
-  number       Int        // 1-8
+  number       Int
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id])
   subjects     Subject[]
@@ -87,28 +95,61 @@ model Subject {
 // --- Users & RBAC ---
 
 model User {
-  id            String    @id @default(cuid())
-  name          String
-  email         String    @unique
-  passwordHash  String
-  usn           String?   @unique // USN for students, Employee ID for staff
-  role          Role      @default(STUDENT)
-  
-  departmentId  String?
-  department    Department? @relation(fields: [departmentId], references: [id])
-  
-  semesterId    String?
-  semester      Semester?   @relation(fields: [semesterId], references: [id])
-  
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  usn          String?   @unique
+  role         Role      @default(STUDENT)
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  semesterId   String?
+  semester     Semester? @relation(fields: [semesterId], references: [id])
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  issueRecords  IssueRecord[]
-  reservations  Reservation[]
+  accounts     Account[]
+  sessions     Session[]
+  issueRecords IssueRecord[]
+  reservations Reservation[]
   notifications Notification[]
-  auditLogs     AuditLog[]
-  bookRequests  BookRequest[]
-  digitalLogs   DigitalAccessLog[]
+  auditLogs    AuditLog[]
+  bookRequests BookRequest[]
+  digitalLogs  DigitalAccessLog[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
 }
 
 // --- Library Domain ---
@@ -120,73 +161,69 @@ model Book {
   author          String
   publisher       String?
   edition         String?
-  
   subjectId       String?
   subject         Subject? @relation(fields: [subjectId], references: [id])
-  
   semesterId      String?
   semester        Semester? @relation(fields: [semesterId], references: [id])
-  
   departmentId    String?
   department      Department? @relation(fields: [departmentId], references: [id])
-  
   totalCopies     Int      @default(1)
   availableCopies Int      @default(1)
   coverImageUrl   String?
   tags            String[]
   digitalCopyUrl  String?
   shelfLocation   String?
+  price           Float?
 
-  copies          BookCopy[]
-  reservations    Reservation[]
-  
+  copies       BookCopy[]
+  reservations Reservation[]
+
   @@index([title])
   @@index([author])
+  @@index([departmentId, semesterId])
 }
 
 model BookCopy {
-  id            String         @id @default(cuid())
-  bookId        String
-  book          Book           @relation(fields: [bookId], references: [id])
-  barcode       String         @unique
-  status        BookCopyStatus @default(AVAILABLE)
-  
-  issueRecords  IssueRecord[]
+  id           String         @id @default(cuid())
+  bookId       String
+  book         Book           @relation(fields: [bookId], references: [id])
+  barcode      String         @unique
+  status       BookCopyStatus @default(AVAILABLE)
+  issueRecords IssueRecord[]
 }
 
 model IssueRecord {
   id           String      @id @default(cuid())
   bookCopyId   String
   bookCopy     BookCopy    @relation(fields: [bookCopyId], references: [id])
-  
   userId       String
   user         User        @relation(fields: [userId], references: [id])
-  
   issueDate    DateTime    @default(now())
   dueDate      DateTime
   returnDate   DateTime?
-  
   fineAmount   Float       @default(0)
-  fineStatus   String?     // e.g., "UNPAID", "PAID"
+  fineStatus   String?
   renewedCount Int         @default(0)
   status       IssueStatus @default(ACTIVE)
-  
   lostClaims   LostBookClaim[]
 
   @@index([userId, status])
+  @@index([dueDate, status])
 }
 
 model Reservation {
   id          String            @id @default(cuid())
   bookId      String
   book        Book              @relation(fields: [bookId], references: [id])
-  
   userId      String
   user        User              @relation(fields: [userId], references: [id])
-  
   requestedAt DateTime          @default(now())
   status      ReservationStatus @default(PENDING)
   notifiedAt  DateTime?
+  holdUntil   DateTime?
+
+  @@index([bookId, status])
+  @@index([userId, status])
 }
 
 model FineRule {
@@ -200,10 +237,12 @@ model Notification {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id])
-  type      String   // e.g., "OVERDUE", "RESERVATION_AVAILABLE"
+  type      String
   message   String
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
+
+  @@index([userId, read])
 }
 
 model AuditLog {
@@ -214,6 +253,8 @@ model AuditLog {
   entityType String
   entityId   String
   timestamp  DateTime @default(now())
+
+  @@index([entityType, entityId])
 }
 
 // --- Real-Life Problem Tables ---
@@ -242,6 +283,8 @@ model DigitalAccessLog {
   id         String   @id @default(cuid())
   userId     String
   user       User     @relation(fields: [userId], references: [id])
-  bookId     String   // Not strictly related to Book model to keep logs even if book is deleted
+  bookId     String
   accessedAt DateTime @default(now())
+
+  @@index([bookId, accessedAt])
 }

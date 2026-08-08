@@ -7,15 +7,16 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "db:generate": "pnpm --filter @rams/database generate",
+    "db:migrate": "pnpm --filter @rams/database migrate",
+    "db:seed": "pnpm --filter @rams/database seed",
+    "db:push": "pnpm --filter @rams/database push",
     "format": "prettier --write \"**/*.{ts,tsx,md}\""
   },
   "devDependencies": {
-    "turbo": "latest",
-    "prettier": "^3.0.0",
-    "typescript": "^5.0.0"
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
   },
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+  "packageManager": "pnpm@9.15.0"
 }

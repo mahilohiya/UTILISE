@@ -1,7 +1,7 @@
 // Simple custom policy engine inspired by CASL for Attribute-Based Access Control
-type Role = "STUDENT" | "FACULTY" | "LIBRARIAN" | "ADMIN" | "SUPERADMIN";
-type Action = "read" | "create" | "update" | "delete" | "reserve" | "issue";
-type Resource = "Book" | "User" | "Reservation" | "Fine" | "AuditLog";
+export type Role = "STUDENT" | "FACULTY" | "LIBRARIAN" | "ADMIN" | "SUPERADMIN";
+export type Action = "read" | "create" | "update" | "delete" | "reserve" | "issue";
+export type Resource = "Book" | "User" | "Reservation" | "Fine" | "AuditLog";
 
 interface UserContext {
     id: string;
@@ -32,12 +32,4 @@ export function can(user: UserContext | null | undefined, action: Action, resour
             return user.role === "ADMIN";
     }
     return false;
-}
-
-// Reusable hook for client-side permission checks
-import { useSession } from "next-auth/react";
-
-export function usePermission(action: Action, resource: Resource) {
-    const { data: session } = useSession();
-    return can(session?.user as UserContext, action, resource);
 }
