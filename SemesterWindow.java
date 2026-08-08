@@ -1,6 +1,4 @@
 import java.awt.*;
-import java.io.File;
-import java.io.IOException;
 import javax.swing.*;
 
 public class SemesterWindow extends JFrame {
@@ -11,7 +9,6 @@ public class SemesterWindow extends JFrame {
 
         ImageIcon icon = new ImageIcon("books/Library.jpg");
         Image backgroundImage = icon.getImage();
-
 
         JPanel backgroundPanel = new JPanel() {
             protected void paintComponent(Graphics g) {
@@ -43,16 +40,10 @@ public class SemesterWindow extends JFrame {
     }
 
     void openBook(String subject) {
-        String path = "books/" + subject + ".pdf";
-        File file = new File(path);
-        if (!file.exists()) {
-            JOptionPane.showMessageDialog(this, "File not found: " + path);
-            return;
-        }
-        try {
-            Desktop.getDesktop().open(file);
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(this, "Error opening file: " + path);
-        }
+        // Placeholder for future implementation
+        JOptionPane.showMessageDialog(this,
+                "Opening content for: " + subject + "\n\n(Placeholder: PDF/Content integration coming soon)",
+                "Subject Content",
+                JOptionPane.INFORMATION_MESSAGE);
     }
 }

@@ -174,8 +174,10 @@ fifthSemButton.addActionListener(e -> showSemesterSubjects("Fifth Semester", fif
 ### Version 2.0 Planned Features
 - [ ] **Database Integration**: MySQL/SQLite for book metadata
 - [ ] **Search Functionality**: Global search across all books and subjects
-- [ ] **Bookmarking System**: Save frequently accessed materials
-- [ ] **Note-taking Integration**: Built-in note editor with PDF annotation
+- [ ] **🤝 Student Community**: Review & rate books, write notes, upload summaries, and ask doubts (Goodreads for engineering students).
+- [ ] **📄 Smart Notes Generator**: AI-powered tool to create one-page notes, extract formulas, and generate viva/interview questions from PDFs.
+- [ ] **🧠 Question Predictor**: Analyzes previous year papers to predict high/medium/low probability questions and topic frequencies.
+- [ ] **🤖 Smart Librarian Chatbot**: AI assistant that helps locate physical books in the library (e.g., "Rack C, Shelf 7").
 - [ ] **Theme Customization**: Multiple UI themes and color schemes
 - [ ] **Cloud Sync**: Google Drive/Dropbox integration for book storage
 - [ ] **Mobile Companion**: Android app for remote access

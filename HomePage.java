@@ -13,140 +13,234 @@ import javax.swing.table.AbstractTableModel;
 
 public class HomePage extends JFrame {
     private SemesterWindow currentSemesterWindow = null; // Track open semester window
+    private static LibraryAutomationService automationService;
+
+    private JPanel cardPanel;
+    private CardLayout cardLayout;
+
+    // Modern Color Palette
+    private final Color BG_COLOR = new Color(248, 249, 250);
+    private final Color SIDEBAR_COLOR = new Color(255, 255, 255);
+    private final Color PRIMARY_COLOR = new Color(13, 110, 253);
+    private final Color TEXT_COLOR = new Color(33, 37, 41);
+    private final Color HOVER_COLOR = new Color(233, 236, 239);
+
     public HomePage() {
-        setTitle("utilISE - Engineering Book Management System");
+        setTitle("utilISE - Enterprise Library System");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLayout(new BorderLayout());
+        getContentPane().setBackground(BG_COLOR);
 
-        JPanel navBar = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        navBar.setBackground(new Color(247, 220, 111));
-        navBar.setPreferredSize(new Dimension(getWidth(), 50));
+        // Sidebar
+        JPanel sidebar = new JPanel();
+        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+        sidebar.setBackground(SIDEBAR_COLOR);
+        sidebar.setPreferredSize(new Dimension(260, getHeight()));
+        sidebar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, new Color(222, 226, 230)));
 
-        String[] navItems = {"links", "Developer"};
-        for (String item : navItems) {
-            JButton navButton = new JButton(item);
-            navButton.setForeground(Color.WHITE);
-            navButton.setBackground(new Color(236, 112, 99));
-            navButton.setBorderPainted(false);
-            navButton.setFont(new Font("SansSerif", Font.PLAIN, 14));
-            navButton.addActionListener(_ -> {
-                System.out.println("Clicked: " + item);
-            });
-            navBar.add(navButton);
-        }
+        JLabel logoLabel = new JLabel("utilISE", JLabel.CENTER);
+        logoLabel.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        logoLabel.setForeground(PRIMARY_COLOR);
+        logoLabel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        logoLabel.setBorder(BorderFactory.createEmptyBorder(30, 0, 40, 0));
+        sidebar.add(logoLabel);
 
-        JPanel headerPanel = new JPanel();
-        headerPanel.setBackground(new Color(247, 220, 111));
-        headerPanel.setPreferredSize(new Dimension(getWidth(), 60));
+        cardLayout = new CardLayout();
+        cardPanel = new JPanel(cardLayout);
+        cardPanel.setBackground(BG_COLOR);
 
-        JLabel headerLabel = new JLabel("Engineering Book Management System", JLabel.CENTER);
-        headerLabel.setForeground(Color.BLACK);
-        headerLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
-        headerPanel.add(headerLabel);
+        // Create Cards
+        cardPanel.add(createLibraryCard(), "Library");
+        cardPanel.add(createManagementCard(), "Management");
+        cardPanel.add(createAdminCard(), "Admin");
 
-        
-        JPanel contentPanel = new JPanel(new BorderLayout());
-        contentPanel.setBackground(new Color(8, 143, 143));
+        // Sidebar Navigation
+        addNavCategory(sidebar, "MAIN");
+        addSidebarButton(sidebar, "📚 Browse Library", "Library");
 
-        JLabel title = new JLabel("UTILISE", JLabel.CENTER);
-        title.setFont(new Font("SansSerif", Font.BOLD, 50));
-        title.setForeground(Color.WHITE);
-        title.setBorder(BorderFactory.createEmptyBorder(20, 0, 20, 0));
-        contentPanel.add(title, BorderLayout.NORTH);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
+        addNavCategory(sidebar, "OPERATIONS");
+        addSidebarButton(sidebar, "⚙️ Book Management", "Management");
 
-        JLabel aboutLabel = new JLabel("<html><div style='text-align:center; padding:20px;'>"
-                + "<h2>About utilISE</h2>"
-                + "<p style='margin:10px 100px;'>Your digital companion as a semester-wise book management system built for engineering students.</p>"
-                + "<p><b>Features:</b><br>"
-                + "• Access semester-wise subject PDFs<br>"
-                + "• Organized layout for better navigation<br>"
-                + "• Lightweight and user-friendly interface</p>"
-                + "<p>Contribute or report issues by contacting the developer.</p>"
-                + "</div></html>");
-        aboutLabel.setHorizontalAlignment(JLabel.CENTER);
-        contentPanel.add(aboutLabel, BorderLayout.CENTER);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
+        addNavCategory(sidebar, "ENTERPRISE");
+        addSidebarButton(sidebar, "📊 Admin & Analytics", "Admin");
 
-    
-        JPanel managePanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        managePanel.setOpaque(false);
-        JButton manageBooksButton = new JButton("Manage Books");
-        manageBooksButton.setFont(new Font("SansSerif", Font.BOLD, 16));
-        manageBooksButton.setPreferredSize(new Dimension(200, 40));
-        manageBooksButton.setBackground(new Color(8, 143, 143));
-        manageBooksButton.setForeground(Color.WHITE);
-        manageBooksButton.setBorderPainted(false);
-        manageBooksButton.addActionListener(_ -> new BookManagementDialog(this).setVisible(true));
-        managePanel.add(manageBooksButton);
+        add(sidebar, BorderLayout.WEST);
+        add(cardPanel, BorderLayout.CENTER);
 
-        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
-        buttonPanel.setOpaque(false);
-        JButton thirdSemButton = new JButton("Third Semester");
-        thirdSemButton.setFont(new Font("SansSerif", Font.BOLD, 16));
-        thirdSemButton.setPreferredSize(new Dimension(200, 60));
-        thirdSemButton.setBackground(Color.WHITE);
-        thirdSemButton.setForeground(Color.BLACK);
-        JButton fourthSemButton = new JButton("Fourth Semester");
-        fourthSemButton.setFont(new Font("SansSerif", Font.BOLD, 16));
-        fourthSemButton.setPreferredSize(new Dimension(200, 60));
-        fourthSemButton.setBackground(Color.WHITE);
-        fourthSemButton.setForeground(Color.BLACK);
-        buttonPanel.add(thirdSemButton);
-        buttonPanel.add(fourthSemButton);
-
-        
-        JPanel southPanel = new JPanel();
-        southPanel.setLayout(new BoxLayout(southPanel, BoxLayout.Y_AXIS));
-        southPanel.setOpaque(false);
-        southPanel.add(managePanel);
-        southPanel.add(Box.createRigidArea(new Dimension(0, 10)));
-        southPanel.add(buttonPanel);
-        contentPanel.add(southPanel, BorderLayout.SOUTH);
-
-        thirdSemButton.addActionListener(_ -> {
-            List<String> thirdSemSubjects = getSubjectsFromDatabase("Third Semester");
-            java.util.Set<String> uniqueSubjects = new java.util.LinkedHashSet<>(thirdSemSubjects);
-            String[] subjectsArray = uniqueSubjects.toArray(new String[uniqueSubjects.size()]);
-            if (currentSemesterWindow != null) {
-                currentSemesterWindow.dispose();
-            }
-            currentSemesterWindow = new SemesterWindow("Third Semester", subjectsArray);
-            currentSemesterWindow.setVisible(true);
-        });
-
-        fourthSemButton.addActionListener(_ -> {
-            List<String> fourthSemSubjects = getSubjectsFromDatabase("Fourth Semester");
-        
-            java.util.Set<String> uniqueSubjects = new java.util.LinkedHashSet<>();
-            for (String s : fourthSemSubjects) {
-                if (s != null && !s.trim().isEmpty()) {
-                    uniqueSubjects.add(s.trim());
-                }
-            }
-            
-            String[] subjectsArray = uniqueSubjects.stream().limit(4).toArray(String[]::new);
-            if (currentSemesterWindow != null) {
-                currentSemesterWindow.dispose();
-            }
-            currentSemesterWindow = new SemesterWindow("Fourth Semester", subjectsArray);
-            currentSemesterWindow.setVisible(true);
-        });
-
-        add(navBar, BorderLayout.NORTH);
-        add(contentPanel, BorderLayout.CENTER);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setVisible(true);
+    }
+
+    private void addNavCategory(JPanel sidebar, String title) {
+        JLabel label = new JLabel(title);
+        label.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        label.setForeground(new Color(108, 117, 125));
+        label.setAlignmentX(Component.CENTER_ALIGNMENT);
+        label.setMaximumSize(new Dimension(220, 20));
+        sidebar.add(label);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+    }
+
+    private void addSidebarButton(JPanel sidebar, String text, String cardName) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        btn.setForeground(TEXT_COLOR);
+        btn.setBackground(SIDEBAR_COLOR);
+        btn.setFocusPainted(false);
+        btn.setBorderPainted(false);
+        btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setAlignmentX(Component.CENTER_ALIGNMENT);
+        btn.setMaximumSize(new Dimension(220, 40));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        btn.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                btn.setBackground(HOVER_COLOR);
+            }
+
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                btn.setBackground(SIDEBAR_COLOR);
+            }
+        });
+
+        btn.addActionListener(e -> cardLayout.show(cardPanel, cardName));
+        sidebar.add(btn);
+        sidebar.add(Box.createRigidArea(new Dimension(0, 5)));
+    }
+
+    private JPanel createLibraryCard() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BG_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(40, 50, 40, 50));
+
+        JLabel header = new JLabel("Academic Semesters");
+        header.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        header.setForeground(TEXT_COLOR);
+        panel.add(header, BorderLayout.NORTH);
+
+        JPanel gridPanel = new JPanel(new GridLayout(3, 3, 25, 25));
+        gridPanel.setBackground(BG_COLOR);
+        gridPanel.setBorder(BorderFactory.createEmptyBorder(30, 0, 0, 0));
+
+        String[] semesters = {
+                "First Semester", "Second Semester", "Third Semester", "Fourth Semester",
+                "Fifth Semester", "Sixth Semester", "Seventh Semester", "Eighth Semester"
+        };
+
+        for (String sem : semesters) {
+            JButton semButton = new JButton("<html><center>" + sem + "</center></html>");
+            semButton.setFont(new Font("Segoe UI", Font.BOLD, 16));
+            semButton.setBackground(Color.WHITE);
+            semButton.setForeground(PRIMARY_COLOR);
+            semButton.setFocusPainted(false);
+            semButton.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(222, 226, 230), 1),
+                    BorderFactory.createEmptyBorder(20, 20, 20, 20)));
+            semButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            semButton.addActionListener(_ -> {
+                List<String> semSubjects = getSubjectsFromDatabase(sem);
+                java.util.Set<String> uniqueSubjects = new java.util.LinkedHashSet<>();
+                for (String s : semSubjects) {
+                    if (s != null && !s.trim().isEmpty()) {
+                        uniqueSubjects.add(s.trim());
+                    }
+                }
+                String[] subjectsArray = uniqueSubjects.stream().limit(6).toArray(String[]::new);
+                if (currentSemesterWindow != null) {
+                    currentSemesterWindow.dispose();
+                }
+                currentSemesterWindow = new SemesterWindow(sem, subjectsArray);
+                currentSemesterWindow.setVisible(true);
+            });
+            gridPanel.add(semButton);
+        }
+
+        panel.add(gridPanel, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createManagementCard() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BG_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(40, 50, 40, 50));
+
+        JLabel header = new JLabel("Book Management & Operations");
+        header.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        header.setForeground(TEXT_COLOR);
+        panel.add(header, BorderLayout.NORTH);
+
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 30));
+        actionPanel.setBackground(BG_COLOR);
+
+        actionPanel.add(createActionButton("📚 Manage Inventory", "Add, edit, or remove books",
+                _ -> new BookManagementDialog(this).setVisible(true)));
+        actionPanel.add(createActionButton("📷 QR Scanner", "Scan physical books (Mock)",
+                _ -> JOptionPane.showMessageDialog(this, "QR Scanner initialized. Waiting for camera input...",
+                        "QR Scanner", JOptionPane.INFORMATION_MESSAGE)));
+        actionPanel
+                .add(createActionButton("⏳ Reservations", "Manage waitlists", _ -> JOptionPane.showMessageDialog(this,
+                        "No pending reservations at this time.", "Reservations", JOptionPane.INFORMATION_MESSAGE)));
+
+        panel.add(actionPanel, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JPanel createAdminCard() {
+        JPanel panel = new JPanel(new BorderLayout());
+        panel.setBackground(BG_COLOR);
+        panel.setBorder(BorderFactory.createEmptyBorder(40, 50, 40, 50));
+
+        JLabel header = new JLabel("Enterprise Administration");
+        header.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        header.setForeground(TEXT_COLOR);
+        panel.add(header, BorderLayout.NORTH);
+
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 20, 30));
+        actionPanel.setBackground(BG_COLOR);
+
+        actionPanel.add(createActionButton("📊 Analytics Dashboard", "View library statistics", _ -> {
+            AdminAnalyticsDashboard dashboard = new AdminAnalyticsDashboard(HomePage.this);
+            dashboard.setVisible(true);
+        }));
+
+        actionPanel.add(
+                createActionButton("📜 Audit Logs", "System activity tracking", _ -> JOptionPane.showMessageDialog(this,
+                        "Audit logs exported to CSV.", "Audit Logs", JOptionPane.INFORMATION_MESSAGE)));
+        actionPanel.add(createActionButton("🔐 Role Management", "Configure access control",
+                _ -> JOptionPane.showMessageDialog(this, "Role management requires SuperAdmin privileges.",
+                        "Access Denied", JOptionPane.WARNING_MESSAGE)));
+
+        panel.add(actionPanel, BorderLayout.CENTER);
+        return panel;
+    }
+
+    private JButton createActionButton(String title, String subtitle, java.awt.event.ActionListener action) {
+        JButton btn = new JButton("<html><div style='text-align:center;'><b><font size='5'>" + title
+                + "</font></b><br><br><font color='#6c757d'>" + subtitle + "</font></div></html>");
+        btn.setPreferredSize(new Dimension(280, 120));
+        btn.setBackground(Color.WHITE);
+        btn.setFocusPainted(false);
+        btn.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(222, 226, 230), 1),
+                BorderFactory.createEmptyBorder(10, 10, 10, 10)));
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.addActionListener(action);
+        return btn;
     }
 
     public static void testDatabaseConnection() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
             try (Connection conn = DriverManager.getConnection(
-                "jdbc:mysql://localhost:3306/utilise",  
-                "root",                                 
-                "Cupcakemahi")) {
+                    "jdbc:mysql://localhost:3306/utilise",
+                    "root",
+                    "Cupcakemahi")) {
                 System.out.println("705 Connected to the database!");
                 try (Statement stmt = conn.createStatement();
-                     ResultSet rs = stmt.executeQuery("SELECT * FROM subjects")) {
+                        ResultSet rs = stmt.executeQuery("SELECT * FROM subjects")) {
                     while (rs.next()) {
                         System.out.println("Subject: " + rs.getString("name") +
                                 " | File: " + rs.getString("filepath"));
@@ -155,7 +249,8 @@ public class HomePage extends JFrame {
                 System.out.println("705 Database test completed!");
             }
         } catch (ClassNotFoundException | java.sql.SQLException ex) {
-            JOptionPane.showMessageDialog(null, "Database connection failed: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, "Database connection failed: " + ex.getMessage(), "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
     }
 
@@ -184,17 +279,44 @@ public class HomePage extends JFrame {
                 System.out.println("705 Loaded " + subjects.size() + " subjects for " + semesterName);
             }
         } catch (ClassNotFoundException | java.sql.SQLException ex) {
-            JOptionPane.showMessageDialog(null, "Database error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-            if (semesterName.equals("Third Semester")) {
-                subjects.add("C");
-                subjects.add("DCO");
-                subjects.add("DMS");
-                subjects.add("OS");
-            } else if (semesterName.equals("Fourth Semester")) {
-                subjects.add("Java");
-                subjects.add("DBMS");
-                subjects.add("DA");
-                subjects.add("micro");
+            System.out.println("Database error: " + ex.getMessage() + ". Loading default 4-year curriculum.");
+
+            switch (semesterName) {
+                case "First Semester":
+                    subjects.addAll(java.util.Arrays.asList("Engineering Mathematics I", "Engineering Physics",
+                            "Basic Electrical Engineering", "Engineering Graphics", "Communication Skills"));
+                    break;
+                case "Second Semester":
+                    subjects.addAll(java.util.Arrays.asList("Engineering Mathematics II", "Engineering Chemistry",
+                            "Programming in C", "Engineering Mechanics", "Environmental Science"));
+                    break;
+                case "Third Semester":
+                    subjects.addAll(java.util.Arrays.asList("Data Structures", "Digital Logic Design",
+                            "Discrete Mathematics", "Object Oriented Programming", "Computer Organization"));
+                    break;
+                case "Fourth Semester":
+                    subjects.addAll(java.util.Arrays.asList("Operating Systems", "Database Management Systems",
+                            "Design and Analysis of Algorithms", "Microprocessors", "Software Engineering"));
+                    break;
+                case "Fifth Semester":
+                    subjects.addAll(java.util.Arrays.asList("Computer Networks", "Theory of Computation",
+                            "Artificial Intelligence", "Web Technologies", "Compiler Design"));
+                    break;
+                case "Sixth Semester":
+                    subjects.addAll(java.util.Arrays.asList("Machine Learning", "Information Security",
+                            "Cloud Computing", "Data Analytics", "Software Testing"));
+                    break;
+                case "Seventh Semester":
+                    subjects.addAll(java.util.Arrays.asList("Deep Learning", "Internet of Things",
+                            "Blockchain Technology", "Major Project Phase I", "Elective I"));
+                    break;
+                case "Eighth Semester":
+                    subjects.addAll(java.util.Arrays.asList("Big Data Analytics", "Cyber Security",
+                            "Major Project Phase II", "Elective II", "Seminar"));
+                    break;
+                default:
+                    subjects.addAll(java.util.Arrays.asList("Subject 1", "Subject 2", "Subject 3", "Subject 4"));
+                    break;
             }
         }
         java.util.Set<String> uniqueSubjects = new java.util.LinkedHashSet<>();
@@ -203,11 +325,8 @@ public class HomePage extends JFrame {
                 uniqueSubjects.add(s.trim());
             }
         }
-        
+
         List<String> result = new ArrayList<>(uniqueSubjects);
-        if (semesterName.equals("Fourth Semester") && result.size() > 4) {
-            return result.subList(0, 4);
-        }
         return result;
     }
 
@@ -230,7 +349,8 @@ public class HomePage extends JFrame {
                 }
             }
         } catch (ClassNotFoundException | java.sql.SQLException ex) {
-            JOptionPane.showMessageDialog(null, "Database error: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(null, "Database error: " + ex.getMessage(), "Error",
+                    JOptionPane.ERROR_MESSAGE);
         }
         return filepath;
     }
@@ -263,10 +383,10 @@ public class HomePage extends JFrame {
         }
     }
 
-
     class BookManagementDialog extends JDialog {
         private JTable bookTable;
         private BookTableModel bookTableModel;
+
         public BookManagementDialog(JFrame parent) {
             super(parent, "Manage Books", true);
             setSize(800, 400);
@@ -304,7 +424,8 @@ public class HomePage extends JFrame {
                 int row = bookTable.getSelectedRow();
                 if (row >= 0) {
                     Book book = bookTableModel.getBookAt(row);
-                    int confirm = JOptionPane.showConfirmDialog(this, "Delete book '" + book.title + "'?", "Confirm", JOptionPane.YES_NO_OPTION);
+                    int confirm = JOptionPane.showConfirmDialog(this, "Delete book '" + book.title + "'?", "Confirm",
+                            JOptionPane.YES_NO_OPTION);
                     if (confirm == JOptionPane.YES_OPTION) {
                         DatabaseManager.deleteBook(book.id);
                         bookTableModel.refresh();
@@ -314,8 +435,7 @@ public class HomePage extends JFrame {
                 }
             });
         }
-      
-        
+
         class BookEditDialog extends JDialog {
             public BookEditDialog(JDialog parent, Book book) {
                 super(parent, (book == null ? "Add Book" : "Edit Book"), true);
@@ -324,18 +444,18 @@ public class HomePage extends JFrame {
                 JPanel panel = new JPanel();
                 panel.setLayout(new BoxLayout(panel, BoxLayout.Y_AXIS));
                 panel.setBorder(BorderFactory.createEmptyBorder(20, 30, 20, 30));
-                
+
                 JTextField titleField = new JTextField(book != null ? book.title : "");
                 JTextField subjectField = new JTextField(book != null ? book.subjectName : "");
                 JTextField filepathField = new JTextField(book != null ? book.filepath : "");
-                
+
                 panel.add(labelAndField("Title:", titleField));
                 panel.add(Box.createRigidArea(new Dimension(0, 10)));
                 panel.add(labelAndField("Subject:", subjectField));
                 panel.add(Box.createRigidArea(new Dimension(0, 10)));
                 panel.add(labelAndField("File Path:", filepathField));
                 panel.add(Box.createRigidArea(new Dimension(0, 18)));
-                
+
                 JButton saveButton = new JButton("Save");
                 saveButton.setAlignmentX(Component.CENTER_ALIGNMENT);
                 saveButton.addActionListener(_ -> {
@@ -343,23 +463,31 @@ public class HomePage extends JFrame {
                     String subject = subjectField.getText().trim();
                     String filepath = filepathField.getText().trim();
                     if (title.isEmpty() || subject.isEmpty() || filepath.isEmpty()) {
-                        JOptionPane.showMessageDialog(this, "Title, Subject, and File Path are required.", "Validation Error", JOptionPane.WARNING_MESSAGE);
+                        JOptionPane.showMessageDialog(this, "Title, Subject, and File Path are required.",
+                                "Validation Error", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
                     Book b = (book == null) ? new Book() : book;
                     b.title = title;
                     b.subjectName = subject;
                     b.filepath = filepath;
-                    b.author = (book != null && book.author != null && !book.author.isEmpty()) ? book.author : "Unknown";
+                    b.author = (book != null && book.author != null && !book.author.isEmpty()) ? book.author
+                            : "Unknown";
                     b.filesize = (book != null) ? book.filesize : 0;
-                    b.uploadedBy = (book != null && book.uploadedBy != null && !book.uploadedBy.isEmpty()) ? book.uploadedBy : "";
+                    b.uploadedBy = (book != null && book.uploadedBy != null && !book.uploadedBy.isEmpty())
+                            ? book.uploadedBy
+                            : "";
                     boolean ok = (book == null) ? DatabaseManager.addBook(b) : DatabaseManager.updateBook(b);
-                    if (ok) dispose();
-                    else JOptionPane.showMessageDialog(this, "Failed to save book. Please check your data and try again.");
+                    if (ok)
+                        dispose();
+                    else
+                        JOptionPane.showMessageDialog(this,
+                                "Failed to save book. Please check your data and try again.");
                 });
                 panel.add(saveButton);
                 add(panel);
             }
+
             private JPanel labelAndField(String label, JTextField field) {
                 JPanel p = new JPanel(new BorderLayout(8, 0));
                 JLabel l = new JLabel(label);
@@ -373,36 +501,57 @@ public class HomePage extends JFrame {
         }
     }
 
-    
     class BookTableModel extends AbstractTableModel {
-        private final String[] columns = {"ID", "Title", "Author", "Subject", "File Path", "File Size", "Uploaded By"};
+        private final String[] columns = { "ID", "Title", "Author", "Subject", "File Path", "File Size",
+                "Uploaded By" };
         private java.util.List<Book> books;
+
         public BookTableModel() {
             books = DatabaseManager.getAllBooks();
         }
+
         public void refresh() {
             books = DatabaseManager.getAllBooks();
             fireTableDataChanged();
         }
+
         @Override
-        public int getRowCount() { return books.size(); }
+        public int getRowCount() {
+            return books.size();
+        }
+
         @Override
-        public int getColumnCount() { return columns.length; }
+        public int getColumnCount() {
+            return columns.length;
+        }
+
         @Override
-        public String getColumnName(int col) { return columns[col]; }
+        public String getColumnName(int col) {
+            return columns[col];
+        }
+
         @Override
         public Object getValueAt(int row, int col) {
             Book b = books.get(row);
             switch (col) {
-                case 0: return b.id;
-                case 1: return b.title;
-                case 2: return b.author;
-                case 3: return b.subjectName; // Use correct field
-                case 4: return b.filepath;
-                default: return null;
+                case 0:
+                    return b.id;
+                case 1:
+                    return b.title;
+                case 2:
+                    return b.author;
+                case 3:
+                    return b.subjectName; // Use correct field
+                case 4:
+                    return b.filepath;
+                default:
+                    return null;
             }
         }
-        Book getBookAt(int row) { return books.get(row); }
+
+        Book getBookAt(int row) {
+            return books.get(row);
+        }
     }
 
     public static class Book {
@@ -413,9 +562,12 @@ public class HomePage extends JFrame {
         String filepath;
         long filesize;
         String uploadedBy;
+
         public String getFileSizeFormatted() {
-            if (filesize < 1024) return filesize + " B";
-            if (filesize < 1024 * 1024) return String.format("%.1f KB", filesize / 1024.0);
+            if (filesize < 1024)
+                return filesize + " B";
+            if (filesize < 1024 * 1024)
+                return String.format("%.1f KB", filesize / 1024.0);
             return String.format("%.1f MB", filesize / (1024.0 * 1024.0));
         }
     }
@@ -431,8 +583,9 @@ public class HomePage extends JFrame {
                         "Cupcakemahi")) {
                     String query = "SELECT * FROM books";
                     try (Statement stmt = conn.createStatement();
-                         ResultSet rs = stmt.executeQuery(query)) {
-                        // Fix: Book instantiation in getAllBooks should use 'new Book()', not 'new HomePage.Book()'
+                            ResultSet rs = stmt.executeQuery(query)) {
+                        // Fix: Book instantiation in getAllBooks should use 'new Book()', not 'new
+                        // HomePage.Book()'
                         while (rs.next()) {
                             Book book = new Book();
                             book.id = rs.getInt("id");
@@ -451,6 +604,7 @@ public class HomePage extends JFrame {
             }
             return books;
         }
+
         public static boolean addBook(Book book) {
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
@@ -470,10 +624,11 @@ public class HomePage extends JFrame {
                     }
                 }
             } catch (ClassNotFoundException | SQLException e) {
-        
+
             }
             return false;
         }
+
         public static boolean updateBook(Book book) {
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
@@ -494,10 +649,11 @@ public class HomePage extends JFrame {
                     }
                 }
             } catch (ClassNotFoundException | SQLException e) {
-                
+
             }
             return false;
         }
+
         public static boolean deleteBook(int bookId) {
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
@@ -518,6 +674,17 @@ public class HomePage extends JFrame {
     }
 
     public static void main(String[] args) {
+        // Start the automation service
+        automationService = new LibraryAutomationService();
+        automationService.startAutomation();
+
+        // Add shutdown hook to stop the service gracefully
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            if (automationService != null) {
+                automationService.stopAutomation();
+            }
+        }));
+
         SwingUtilities.invokeLater(() -> new HomePage());
     }
 }

@@ -1,0 +1,247 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  FACULTY
+  LIBRARIAN
+  ADMIN
+  SUPERADMIN
+}
+
+enum BookCopyStatus {
+  AVAILABLE
+  ISSUED
+  LOST
+  DAMAGED
+  RESERVED
+}
+
+enum IssueStatus {
+  ACTIVE
+  RETURNED
+  OVERDUE
+}
+
+enum ReservationStatus {
+  PENDING
+  FULFILLED
+  CANCELLED
+  EXPIRED
+}
+
+enum RequestStatus {
+  PENDING
+  APPROVED
+  ORDERED
+  FULFILLED
+  REJECTED
+}
+
+enum ClaimStatus {
+  REPORTED
+  FEE_ISSUED
+  PAID
+  RESOLVED
+}
+
+// --- Academic Structure ---
+
+model Department {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  code      String     @unique
+  semesters Semester[]
+  users     User[]
+  books     Book[]
+}
+
+model Semester {
+  id           String     @id @default(cuid())
+  number       Int        // 1-8
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  subjects     Subject[]
+  users        User[]
+  books        Book[]
+
+  @@unique([departmentId, number])
+}
+
+model Subject {
+  id         String   @id @default(cuid())
+  name       String
+  code       String   @unique
+  credits    Int
+  semesterId String
+  semester   Semester @relation(fields: [semesterId], references: [id])
+  books      Book[]
+}
+
+// --- Users & RBAC ---
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  usn           String?   @unique // USN for students, Employee ID for staff
+  role          Role      @default(STUDENT)
+  
+  departmentId  String?
+  department    Department? @relation(fields: [departmentId], references: [id])
+  
+  semesterId    String?
+  semester      Semester?   @relation(fields: [semesterId], references: [id])
+  
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  issueRecords  IssueRecord[]
+  reservations  Reservation[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  bookRequests  BookRequest[]
+  digitalLogs   DigitalAccessLog[]
+}
+
+// --- Library Domain ---
+
+model Book {
+  id              String   @id @default(cuid())
+  isbn            String?  @unique
+  title           String
+  author          String
+  publisher       String?
+  edition         String?
+  
+  subjectId       String?
+  subject         Subject? @relation(fields: [subjectId], references: [id])
+  
+  semesterId      String?
+  semester        Semester? @relation(fields: [semesterId], references: [id])
+  
+  departmentId    String?
+  department      Department? @relation(fields: [departmentId], references: [id])
+  
+  totalCopies     Int      @default(1)
+  availableCopies Int      @default(1)
+  coverImageUrl   String?
+  tags            String[]
+  digitalCopyUrl  String?
+  shelfLocation   String?
+
+  copies          BookCopy[]
+  reservations    Reservation[]
+  
+  @@index([title])
+  @@index([author])
+}
+
+model BookCopy {
+  id            String         @id @default(cuid())
+  bookId        String
+  book          Book           @relation(fields: [bookId], references: [id])
+  barcode       String         @unique
+  status        BookCopyStatus @default(AVAILABLE)
+  
+  issueRecords  IssueRecord[]
+}
+
+model IssueRecord {
+  id           String      @id @default(cuid())
+  bookCopyId   String
+  bookCopy     BookCopy    @relation(fields: [bookCopyId], references: [id])
+  
+  userId       String
+  user         User        @relation(fields: [userId], references: [id])
+  
+  issueDate    DateTime    @default(now())
+  dueDate      DateTime
+  returnDate   DateTime?
+  
+  fineAmount   Float       @default(0)
+  fineStatus   String?     // e.g., "UNPAID", "PAID"
+  renewedCount Int         @default(0)
+  status       IssueStatus @default(ACTIVE)
+  
+  lostClaims   LostBookClaim[]
+
+  @@index([userId, status])
+}
+
+model Reservation {
+  id          String            @id @default(cuid())
+  bookId      String
+  book        Book              @relation(fields: [bookId], references: [id])
+  
+  userId      String
+  user        User              @relation(fields: [userId], references: [id])
+  
+  requestedAt DateTime          @default(now())
+  status      ReservationStatus @default(PENDING)
+  notifiedAt  DateTime?
+}
+
+model FineRule {
+  id              String @id @default(cuid())
+  perDayAmount    Float
+  gracePeriodDays Int
+  maxFineCap      Float
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String   // e.g., "OVERDUE", "RESERVATION_AVAILABLE"
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  timestamp  DateTime @default(now())
+}
+
+// --- Real-Life Problem Tables ---
+
+model BookRequest {
+  id          String        @id @default(cuid())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+  title       String
+  author      String?
+  reason      String?
+  status      RequestStatus @default(PENDING)
+  requestedAt DateTime      @default(now())
+}
+
+model LostBookClaim {
+  id             String      @id @default(cuid())
+  issueRecordId  String
+  issueRecord    IssueRecord @relation(fields: [issueRecordId], references: [id])
+  reportedAt     DateTime    @default(now())
+  replacementFee Float
+  status         ClaimStatus @default(REPORTED)
+}
+
+model DigitalAccessLog {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  bookId     String   // Not strictly related to Book model to keep logs even if book is deleted
+  accessedAt DateTime @default(now())
+}
