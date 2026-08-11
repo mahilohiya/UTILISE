@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { daysUntil, formatCurrency } from "@/lib/utils";
 import { BookOpen, Clock, AlertTriangle, DollarSign } from "lucide-react";
@@ -7,7 +8,8 @@ import Link from "next/link";
 
 export default async function StudentDashboard() {
   const session = await auth();
-  const userId = session!.user.id;
+  if (!session) redirect("/login");
+  const userId = session.user.id;
 
   const [user, issues, reservations, notifications] = await Promise.all([
     prisma.user.findUnique({
@@ -38,10 +40,10 @@ export default async function StudentDashboard() {
     : [];
 
   return (
-    <DashboardLayout role="STUDENT" userName={session!.user.name} unreadCount={notifications}>
+    <DashboardLayout role="STUDENT" userName={session.user.name} unreadCount={notifications}>
       <div className="max-w-6xl">
         <h1 className="text-2xl font-serif font-bold text-slate-800 mb-1">
-          Welcome back, {session!.user.name.split(" ")[0]}
+          Welcome back, {session.user.name.split(" ")[0]}
         </h1>
         <p className="text-slate-500 mb-8">Your library activity for this semester.</p>
 

@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Search,
   LogOut,
+  Sparkles,
 } from "lucide-react";
 import { useState } from "react";
 
@@ -21,6 +22,7 @@ const NAV_ITEMS: Record<string, { label: string; icon: React.ReactNode; href: st
   STUDENT: [
     { label: "Overview", icon: <LayoutDashboard className="h-5 w-5" />, href: "/dashboard/student" },
     { label: "Catalog", icon: <Library className="h-5 w-5" />, href: "/catalog" },
+    { label: "Smart Notes", icon: <Sparkles className="h-5 w-5" />, href: "/dashboard/notes" },
     { label: "Notifications", icon: <Bell className="h-5 w-5" />, href: "/dashboard/student/notifications" },
   ],
   LIBRARIAN: [

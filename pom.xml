@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>edu.msrit</groupId>
+    <artifactId>utilise</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <properties>
+        <!-- HomePage.java uses unnamed lambda parameters ("_ ->"), a
+             feature finalized as stable in Java 22 (JEP 456). Targeting 17
+             here would fail to compile that syntax at all. -->
+        <maven.compiler.release>22</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <mainClass>HomePage</mainClass>
+    </properties>
+
+    <dependencies>
+        <!-- MySQL JDBC driver -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <version>9.3.0</version>
+        </dependency>
+
+        <!-- Charts for AdminAnalyticsDashboard -->
+        <dependency>
+            <groupId>org.jfree</groupId>
+            <artifactId>jfreechart</artifactId>
+            <version>1.5.5</version>
+        </dependency>
+
+        <!-- PDF report generation -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.29</version>
+        </dependency>
+
+        <!-- Testing -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.2</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <!-- Source files currently sit at repo root (no src/main/java yet).
+             This tells Maven to compile them in place rather than forcing
+             a folder restructure right now; migrate to src/main/java when
+             convenient. -->
+        <sourceDirectory>.</sourceDirectory>
+        <testSourceDirectory>src/test/java</testSourceDirectory>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <excludes>
+                        <!-- rams-platform is a separate Node/Next.js project, not Java -->
+                        <exclude>rams-platform/**</exclude>
+                        <!-- src/test/java is picked up separately via testSourceDirectory below;
+                             without this exclude, sourceDirectory="." recursively pulls test
+                             files into the MAIN compile phase too, where JUnit isn't on the
+                             classpath yet, causing "package org.junit.jupiter.api does not exist" -->
+                        <exclude>src/**</exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+
+            <!-- Produces a single runnable jar with all dependencies bundled -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals><goal>shade</goal></goals>
+                        <configuration>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>${mainClass}</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <!--
+          Produces a native installer (.exe on Windows, .dmg on macOS, .deb on
+          Linux) using the JDK's built-in jpackage tool (JDK 14+). This bundles
+          a private JRE, so end users don't need Java installed separately.
+
+          Usage:
+            1. mvn clean package                 (builds target/utilise-1.0.0.jar)
+            2. mvn -P installer jpackage:jpackage (produces the installer)
+
+          jpackage picks the installer TYPE automatically based on the OS you
+          run it on - run this on Windows for an .exe, macOS for a .dmg, or
+          Linux for a .deb. There is no cross-compilation; build each installer
+          on its target OS (or in CI using a matrix of OS runners).
+        -->
+        <profile>
+            <id>installer</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.panteleyev</groupId>
+                        <artifactId>jpackage-maven-plugin</artifactId>
+                        <version>1.6.5</version>
+                        <configuration>
+                            <name>utilISE</name>
+                            <appVersion>1.0.0</appVersion>
+                            <vendor>MSRIT</vendor>
+                            <destination>target/installer</destination>
+                            <input>target</input>
+                            <mainJar>utilise-1.0.0.jar</mainJar>
+                            <mainClass>HomePage</mainClass>
+                            <javaOptions>
+                                <option>-Dfile.encoding=UTF-8</option>
+                            </javaOptions>
+                            <!-- Windows-specific options (ignored on other OSes) -->
+                            <winDirChooser>true</winDirChooser>
+                            <winMenu>true</winMenu>
+                            <winShortcut>true</winShortcut>
+                            <!-- macOS-specific options (ignored on other OSes) -->
+                            <macPackageName>utilISE</macPackageName>
+                            <!-- Linux-specific options (ignored on other OSes) -->
+                            <linuxShortcut>true</linuxShortcut>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

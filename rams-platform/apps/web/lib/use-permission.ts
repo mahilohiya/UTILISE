@@ -5,5 +5,5 @@ import { can, type Action, type Resource } from "./rbac";
 
 export function usePermission(action: Action, resource: Resource) {
   const { data: session } = useSession();
-  return can(session?.user as { id: string; role: string } | undefined, action, resource);
+  return can(session?.user, action, resource);
 }

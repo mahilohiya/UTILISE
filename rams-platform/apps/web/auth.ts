@@ -3,36 +3,28 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import * as argon2 from "argon2";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
+import type { Role } from "@/lib/rbac";
+import { authConfig } from "./auth.config";
 
 const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "msrit.edu";
 
-declare module "next-auth" {
-  interface Session {
-    user: {
-      id: string;
-      email: string;
-      name: string;
-      role: string;
-    };
-  }
-  interface User {
-    role: string;
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    role?: string;
-    id?: string;
-  }
-}
+// NOTE: we deliberately do NOT augment "next-auth/jwt" here. With
+// moduleResolution: "bundler" (required by Next.js 15), TypeScript's
+// ambient module augmentation can fail to resolve that subpath export
+// (TS2664), even though the module exists at runtime. Casting token.role
+// at the call sites in auth.config.ts's callbacks is a smaller, more
+// portable fix than switching the whole project's module resolution
+// strategy.
+//
+// This file is the FULL auth config (real CredentialsProvider using argon2 +
+// Prisma) and must only be imported from Node-runtime code (server
+// components, server actions, the NextAuth API route) - never from
+// middleware.ts, which runs in the Edge Runtime and can't load argon2's
+// native addon. middleware.ts imports the separate, provider-less
+// `authConfig` from auth.config.ts instead. See auth.config.ts for details.
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  trustHost: true,
-  session: { strategy: "jwt" },
-  pages: {
-    signIn: "/login",
-  },
+  ...authConfig,
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -77,25 +69,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: user.id,
           email: user.email,
           name: user.name,
-          role: user.role,
+          role: user.role as Role,
         };
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = user.role;
-        token.id = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (token && session.user) {
-        session.user.role = token.role as string;
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
 });

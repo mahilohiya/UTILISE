@@ -6,10 +6,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class LibraryAutomationService {
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "Cupcakemahi";
-
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
 
     public void startAutomation() {
@@ -26,7 +22,7 @@ public class LibraryAutomationService {
 
     private void runDailyTasks() {
         System.out.println("Running daily library automation tasks...");
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD)) {
+        try (Connection conn = DBConfig.getConnection()) {
             processOverdueBooks(conn);
             processWaitlist(conn);
             checkInventoryAlerts(conn);
@@ -51,6 +47,7 @@ public class LibraryAutomationService {
                 int userId = rs.getInt("user_id");
                 int bookId = rs.getInt("book_id");
                 int renewalsCount = rs.getInt("renewals_count");
+                LocalDate dueDate = rs.getTimestamp("due_date").toLocalDateTime().toLocalDate();
 
                 // Check if there is a waitlist for this book
                 boolean hasWaitlist = checkWaitlist(conn, bookId);
@@ -59,9 +56,11 @@ public class LibraryAutomationService {
                     // Auto-renew
                     autoRenewBook(conn, borrowingId, userId, bookId);
                 } else {
-                    // Apply fine and notify
-                    applyFine(conn, borrowingId);
-                    createNotification(conn, userId, "Your book is overdue. A fine has been applied.");
+                    // Apply fine (calendar-correct, capped) and notify
+                    double fine = FineCalculator.calculateFine(dueDate, LocalDate.now());
+                    applyFine(conn, borrowingId, fine);
+                    createNotification(conn, userId,
+                            String.format("Your book is overdue. Current fine: $%.2f", fine));
                 }
             }
         }
@@ -90,11 +89,13 @@ public class LibraryAutomationService {
         logAudit(conn, "SYSTEM", "AUTO_RENEW", "borrowing", borrowingId, "Auto-renewed book ID " + bookId);
     }
 
-    private void applyFine(Connection conn, int borrowingId) throws SQLException {
-        // Apply a fixed fine of $1.00 per day overdue (simplified)
-        String query = "UPDATE borrowings SET fine_amount = fine_amount + 1.00, status = 'OVERDUE' WHERE id = ?";
+    private void applyFine(Connection conn, int borrowingId, double fineAmount) throws SQLException {
+        // Set (not increment) the fine to the freshly calculated, capped amount -
+        // avoids the fine growing every time this job runs regardless of actual days overdue.
+        String query = "UPDATE borrowings SET fine_amount = ?, status = 'OVERDUE' WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(query)) {
-            pstmt.setInt(1, borrowingId);
+            pstmt.setDouble(1, fineAmount);
+            pstmt.setInt(2, borrowingId);
             pstmt.executeUpdate();
         }
     }

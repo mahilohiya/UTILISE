@@ -171,9 +171,29 @@ fifthSemButton.addActionListener(e -> showSemesterSubjects("Fifth Semester", fif
 
 ## 📈 Future Roadmap
 
+### Currently Implemented
+- [x] **Database Integration**: MySQL, via a shared `DBConfig` class — connection
+      settings and credentials are read from environment variables, never
+      hardcoded (see "Configuration" below).
+- [x] **Search Functionality**: Parameterized (SQL-injection-safe) search
+      across title/author/subject in `ImprovedBookManager`.
+- [x] **Book Management**: Full CRUD (add/edit/delete/search) via
+      `ImprovedBookManager`'s dialogs, backed by MySQL.
+- [x] **Automation Service**: `LibraryAutomationService` runs a scheduled job
+      that auto-renews books with no waitlist, applies calendar-correct
+      capped fines (`FineCalculator`) to overdue books with a waitlist,
+      fulfills reservations when copies free up, and logs inventory/condition
+      alerts to an audit log.
+- [x] **Admin Analytics Dashboard**: Live stats (total books, users, active
+      borrowings, fines collected) pulled from a MySQL view.
+- [x] **Build System**: Maven (`pom.xml`) with the MySQL driver, JFreeChart,
+      and JUnit 5 as managed dependencies.
+- [x] **Unit Tests**: `FineCalculatorTest` covers the grace period, per-day
+      rate, the fine cap, and a regression test for a bug where fines used
+      to grow every time the automation job ran instead of reflecting actual
+      days overdue.
+
 ### Version 2.0 Planned Features
-- [ ] **Database Integration**: MySQL/SQLite for book metadata
-- [ ] **Search Functionality**: Global search across all books and subjects
 - [ ] **🤝 Student Community**: Review & rate books, write notes, upload summaries, and ask doubts (Goodreads for engineering students).
 - [ ] **📄 Smart Notes Generator**: AI-powered tool to create one-page notes, extract formulas, and generate viva/interview questions from PDFs.
 - [ ] **🧠 Question Predictor**: Analyzes previous year papers to predict high/medium/low probability questions and topic frequencies.
@@ -181,6 +201,49 @@ fifthSemButton.addActionListener(e -> showSemesterSubjects("Fifth Semester", fif
 - [ ] **Theme Customization**: Multiple UI themes and color schemes
 - [ ] **Cloud Sync**: Google Drive/Dropbox integration for book storage
 - [ ] **Mobile Companion**: Android app for remote access
+
+Also now implemented since the last update:
+- [x] **Charts on Admin Dashboard**: bar chart (issues per semester) and pie
+      chart (available vs. issued copies), wired into `AdminAnalyticsDashboard`.
+- [x] **Role-based login**: `LoginDialog` authenticates against `users` and
+      gates `AdminAnalyticsDashboard`/`ImprovedBookManager` by role.
+- [x] **`books.subject_id` foreign key**: replaces the old fragile text-match
+      join between `books.subject` and `subjects.name`; auto-migrated and
+      backfilled at startup for existing databases.
+- [x] **Packaging**: `jpackage` Maven profile added (see "Building an
+      installer" below) — not yet run end-to-end since it needs a JDK 14+
+      with jpackage on the build machine.
+
+## Configuration
+
+Set these environment variables before running the app (never commit real
+credentials to source):
+
+```bash
+export UTILISE_DB_HOST=localhost
+export UTILISE_DB_PORT=3306
+export UTILISE_DB_NAME=utilise
+export UTILISE_DB_USER=root
+export UTILISE_DB_PASSWORD=your-password-here   # required, no default
+```
+
+> **Note:** an earlier version of this repo had a real database password
+> committed in plain text across multiple files. That has been removed and
+> replaced with `DBConfig`, which reads credentials from environment
+> variables only. If you're the original author, please rotate that
+> password — it's still visible in git history even though it's gone from
+> the current code.
+
+## Building an installer
+
+```bash
+mvn clean package                    # produces target/utilise-1.0.0.jar
+mvn -P installer jpackage:jpackage   # produces a native installer for the OS you run this on
+```
+
+This produces `.exe` on Windows, `.dmg` on macOS, or `.deb` on Linux — whichever
+OS you run the second command on. There's no cross-compilation; to ship all
+three, run it once per OS (or use a CI matrix). Requires JDK 14+.
 
 ### Long-term Vision
 - Multi-university support with customizable curricula

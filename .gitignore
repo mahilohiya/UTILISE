@@ -1,0 +1,41 @@
+# Compiled Java class files (build these with mvn/javac, don't commit them)
+*.class
+
+# Maven
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Local environment / secrets - never commit real credentials
+.env
+*.env.local
+config.properties
+
+# Build check artifacts
+/tmp/
+
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+.next/
+.turbo/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Java compiled files
+*.class
+target/
+
+# macOS
+.DS_Store

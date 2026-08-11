@@ -116,6 +116,7 @@ model User {
   auditLogs    AuditLog[]
   bookRequests BookRequest[]
   digitalLogs  DigitalAccessLog[]
+  generatedNotes GeneratedNote[]
 }
 
 model Account {
@@ -177,6 +178,7 @@ model Book {
 
   copies       BookCopy[]
   reservations Reservation[]
+  generatedNotes GeneratedNote[]
 
   @@index([title])
   @@index([author])
@@ -287,4 +289,33 @@ model DigitalAccessLog {
   accessedAt DateTime @default(now())
 
   @@index([bookId, accessedAt])
+}
+
+// --- Smart Notes Generator ---
+
+enum NoteStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model GeneratedNote {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  bookId    String?
+  book      Book?      @relation(fields: [bookId], references: [id])
+  sourceName String    // original filename, or the book title if generated from a catalog book
+  status    NoteStatus @default(PENDING)
+  errorMessage String?
+
+  // AI-generated content, all filled in once status = COMPLETED
+  summaryMarkdown String? @db.Text
+  formulas        String[]
+  vivaQuestions   String[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
 }

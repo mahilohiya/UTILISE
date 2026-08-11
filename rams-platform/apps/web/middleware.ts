@@ -1,5 +1,12 @@
+import NextAuth from "next-auth";
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { authConfig } from "@/auth.config";
+
+// Deliberately built from the Edge-safe authConfig (no argon2/Prisma), not
+// from "@/auth" - see auth.config.ts for why. This second, lightweight
+// NextAuth() call only reads/validates the JWT session; it never runs the
+// actual CredentialsProvider.authorize() logic, which doesn't exist here.
+const { auth } = NextAuth(authConfig);
 
 const ROLE_DASHBOARD: Record<string, string> = {
   STUDENT: "/dashboard/student",

@@ -10,8 +10,12 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-INSERT IGNORE INTO users (username, password_hash, role, email) VALUES ('SYSTEM', 'system', 'SYSTEM', 'system@utilise.local');
-INSERT IGNORE INTO users (username, password_hash, role, email) VALUES ('admin', 'admin123', 'ADMIN', 'admin@utilise.local');
+-- Passwords below are SHA-256 hashes (see PasswordUtil.java), not plaintext.
+-- 'system' hashes to bbc5e661e106c6dcd8dc6dd186454c2fcba3c710fb4d8e71a60c93eaf077f073
+-- 'admin123' hashes to 240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9
+-- CHANGE THE ADMIN PASSWORD after first login - this is a well-known demo value.
+INSERT IGNORE INTO users (username, password_hash, role, email) VALUES ('SYSTEM', 'bbc5e661e106c6dcd8dc6dd186454c2fcba3c710fb4d8e71a60c93eaf077f073', 'SYSTEM', 'system@utilise.local');
+INSERT IGNORE INTO users (username, password_hash, role, email) VALUES ('admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', 'ADMIN', 'admin@utilise.local');
 
 -- 2. Book Inventory & Condition Tracking
 ALTER TABLE books ADD COLUMN IF NOT EXISTS isbn VARCHAR(20);
@@ -19,6 +23,10 @@ ALTER TABLE books ADD COLUMN IF NOT EXISTS total_copies INT DEFAULT 1;
 ALTER TABLE books ADD COLUMN IF NOT EXISTS available_copies INT DEFAULT 1;
 ALTER TABLE books ADD COLUMN IF NOT EXISTS physical_condition ENUM('NEW', 'GOOD', 'FAIR', 'POOR') DEFAULT 'GOOD';
 ALTER TABLE books ADD COLUMN IF NOT EXISTS qr_code VARCHAR(255); -- For QR Book Scanning
+-- books.subject_id (FK -> subjects.id) is added and backfilled automatically
+-- at app startup by ImprovedBookManager.migrateSubjectIdColumn(), replacing
+-- the old free-text `subject` column as the source of truth for joins.
+-- The `subject` text column is kept for display/backward compatibility.
 
 -- 3. Automatic Due-Date/Fine System & Borrowing History
 CREATE TABLE IF NOT EXISTS borrowings (

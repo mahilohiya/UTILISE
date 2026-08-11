@@ -148,7 +148,10 @@ async function main() {
 
     const createdBook = await prisma.book.upsert({
       where: { isbn: book.isbn },
-      update: {},
+      update: {
+        // Backfill cover images for books already seeded before this field existed.
+        coverImageUrl: `https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`,
+      },
       create: {
         isbn: book.isbn,
         title: book.title,
@@ -163,6 +166,12 @@ async function main() {
         tags: [book.dept, `Sem ${book.sem}`],
         price: 450 + Math.floor(Math.random() * 550),
         digitalCopyUrl: Math.random() > 0.7 ? `/digital/${book.isbn}.pdf` : null,
+        // Open Library serves real cover art keyed by ISBN, free and without
+        // an API key. These are genuine textbooks with real ISBNs, so most
+        // will resolve to an actual cover. If Open Library doesn't have a
+        // given title, the <img> fallback in the UI shows a styled icon
+        // instead of a broken image.
+        coverImageUrl: `https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`,
       },
     });
 

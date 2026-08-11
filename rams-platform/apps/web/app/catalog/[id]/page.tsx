@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { BookOpen, ArrowLeft } from "lucide-react";
+import { BookOpen, ArrowLeft, User } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { auth } from "@/auth";
+import GenerateNotesButton from "./GenerateNotesButton";
 
 export default async function BookDetailPage({
   params,
@@ -9,6 +11,7 @@ export default async function BookDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const session = await auth();
 
   const book = await prisma.book.findUnique({
     where: { id },
@@ -45,15 +48,34 @@ export default async function BookDetailPage({
         <Link href="/catalog" className="flex items-center gap-2 text-sm hover:text-secondary">
           <ArrowLeft className="h-4 w-4" /> Back to Catalog
         </Link>
-        <Link href="/login" className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md text-sm">
-          Sign In
-        </Link>
+        {session ? (
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 text-sm font-medium hover:text-secondary"
+          >
+            <User className="h-4 w-4" />
+            {session.user.name}
+          </Link>
+        ) : (
+          <Link href="/login" className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md text-sm">
+            Sign In
+          </Link>
+        )}
       </header>
 
       <div className="max-w-5xl mx-auto px-4 py-10">
         <div className="grid md:grid-cols-3 gap-10">
-          <div className="h-80 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-2xl flex items-center justify-center">
-            <BookOpen className="h-24 w-24 text-primary/30" />
+          <div className="h-80 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-2xl flex items-center justify-center overflow-hidden">
+            {book.coverImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={book.coverImageUrl}
+                alt={`Cover of ${book.title}`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <BookOpen className="h-24 w-24 text-primary/30" />
+            )}
           </div>
           <div className="md:col-span-2">
             <h1 className="text-3xl font-serif font-bold text-slate-900 mb-2">{book.title}</h1>
@@ -85,6 +107,7 @@ export default async function BookDetailPage({
               <div><dt className="text-slate-400">Shelf</dt><dd>{book.shelfLocation ?? "—"}</dd></div>
               <div><dt className="text-slate-400">Subject</dt><dd>{book.subject?.name ?? "—"}</dd></div>
             </dl>
+            {session && book.digitalCopyUrl && <GenerateNotesButton bookId={book.id} />}
           </div>
         </div>
 
@@ -129,6 +152,19 @@ export default async function BookDetailPage({
                   href={`/catalog/${r.id}`}
                   className="bg-white p-4 rounded-xl border hover:shadow-md transition-shadow"
                 >
+                  <div className="h-24 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center overflow-hidden mb-3">
+                    {r.coverImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={r.coverImageUrl}
+                        alt={`Cover of ${r.title}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <BookOpen className="h-10 w-10 text-primary/30" />
+                    )}
+                  </div>
                   <h3 className="font-serif font-medium line-clamp-2">{r.title}</h3>
                   <p className="text-sm text-slate-500 mt-1">{r.author}</p>
                 </Link>

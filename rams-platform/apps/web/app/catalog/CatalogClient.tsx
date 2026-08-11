@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Search, Grid3x3, List, BookOpen, ChevronDown, Loader2 } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { Search, Grid3x3, List, BookOpen, ChevronDown, Loader2, User } from "lucide-react";
 import { reserveBook } from "@/app/actions/book";
 import { toast } from "sonner";
 
@@ -14,6 +15,7 @@ interface BookItem {
   isbn: string | null;
   availableCopies: number;
   totalCopies: number;
+  coverImageUrl: string | null;
   department: { code: string } | null;
   semester: { number: number } | null;
 }
@@ -22,6 +24,7 @@ const DEPARTMENTS = ["All", "CSE", "ISE", "ECE", "ME", "CE", "EEE", "AIML", "BT"
 const SEMESTERS = ["All", "1", "2", "3", "4", "5", "6", "7", "8"];
 
 export default function CatalogClient() {
+  const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const [books, setBooks] = useState<BookItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,12 +69,32 @@ export default function CatalogClient() {
           <BookOpen className="h-7 w-7 text-secondary" />
           <span className="text-xl font-serif font-bold">RAMS</span>
         </Link>
-        <Link
-          href="/login"
-          className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-secondary/90"
-        >
-          Sign In
-        </Link>
+        {status === "loading" ? (
+          <div className="h-9 w-24 rounded-md bg-white/10 animate-pulse" />
+        ) : session ? (
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="hidden sm:flex items-center gap-2 text-sm font-medium hover:text-secondary transition-colors"
+            >
+              <User className="h-4 w-4" />
+              {session.user.name}
+            </Link>
+            <button
+              onClick={() => signOut({ callbackUrl: "/" })}
+              className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium hover:bg-secondary/90"
+          >
+            Sign In
+          </Link>
+        )}
       </header>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
@@ -193,8 +216,26 @@ function BookCard({
   return (
     <div className="bg-white rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden group">
       <Link href={`/catalog/${book.id}`}>
-        <div className="h-48 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center">
-          <BookOpen className="h-16 w-16 text-primary/30 group-hover:scale-110 transition-transform" />
+        <div className="h-48 bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center overflow-hidden">
+          {book.coverImageUrl ? (
+            <img
+              src={book.coverImageUrl}
+              alt={`Cover of ${book.title}`}
+              className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+              loading="lazy"
+              onError={(e) => {
+                // If the cover URL is broken/unreachable, fall back to the icon
+                // placeholder instead of showing a broken-image icon.
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+                e.currentTarget.parentElement
+                  ?.querySelector(".cover-fallback")
+                  ?.classList.remove("hidden");
+              }}
+            />
+          ) : null}
+          <BookOpen
+            className={`h-16 w-16 text-primary/30 group-hover:scale-110 transition-transform cover-fallback ${book.coverImageUrl ? "hidden" : ""}`}
+          />
         </div>
       </Link>
       <div className="p-5">
@@ -242,8 +283,24 @@ function BookRow({
 }) {
   return (
     <div className="bg-white rounded-lg border p-4 flex items-center gap-6 hover:shadow-md transition-shadow">
-      <div className="h-16 w-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-        <BookOpen className="h-8 w-8 text-primary/30" />
+      <div className="h-16 w-16 bg-gradient-to-br from-primary/10 to-secondary/10 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden">
+        {book.coverImageUrl ? (
+          <img
+            src={book.coverImageUrl}
+            alt={`Cover of ${book.title}`}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = "none";
+              e.currentTarget.parentElement
+                ?.querySelector(".cover-fallback")
+                ?.classList.remove("hidden");
+            }}
+          />
+        ) : null}
+        <BookOpen
+          className={`h-8 w-8 text-primary/30 cover-fallback ${book.coverImageUrl ? "hidden" : ""}`}
+        />
       </div>
       <div className="flex-1 min-w-0">
         <Link href={`/catalog/${book.id}`} className="font-serif font-semibold text-slate-800 hover:text-primary">

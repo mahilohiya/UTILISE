@@ -14,6 +14,7 @@ import javax.swing.table.AbstractTableModel;
 public class HomePage extends JFrame {
     private SemesterWindow currentSemesterWindow = null; // Track open semester window
     private static LibraryAutomationService automationService;
+    private final AuthenticatedUser currentUser;
 
     private JPanel cardPanel;
     private CardLayout cardLayout;
@@ -25,8 +26,9 @@ public class HomePage extends JFrame {
     private final Color TEXT_COLOR = new Color(33, 37, 41);
     private final Color HOVER_COLOR = new Color(233, 236, 239);
 
-    public HomePage() {
-        setTitle("utilISE - Enterprise Library System");
+    public HomePage(AuthenticatedUser user) {
+        this.currentUser = user;
+        setTitle("utilISE - Enterprise Library System (" + user.username + " - " + user.role + ")");
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setLayout(new BorderLayout());
         getContentPane().setBackground(BG_COLOR);
@@ -49,22 +51,30 @@ public class HomePage extends JFrame {
         cardPanel = new JPanel(cardLayout);
         cardPanel.setBackground(BG_COLOR);
 
-        // Create Cards
+        // Create Cards - only build the ones this role is allowed to see
         cardPanel.add(createLibraryCard(), "Library");
-        cardPanel.add(createManagementCard(), "Management");
-        cardPanel.add(createAdminCard(), "Admin");
+        if (currentUser.isLibrarianOrAbove()) {
+            cardPanel.add(createManagementCard(), "Management");
+        }
+        if (currentUser.isAdmin()) {
+            cardPanel.add(createAdminCard(), "Admin");
+        }
 
         // Sidebar Navigation
         addNavCategory(sidebar, "MAIN");
         addSidebarButton(sidebar, "📚 Browse Library", "Library");
 
-        sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
-        addNavCategory(sidebar, "OPERATIONS");
-        addSidebarButton(sidebar, "⚙️ Book Management", "Management");
+        if (currentUser.isLibrarianOrAbove()) {
+            sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
+            addNavCategory(sidebar, "OPERATIONS");
+            addSidebarButton(sidebar, "⚙️ Book Management", "Management");
+        }
 
-        sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
-        addNavCategory(sidebar, "ENTERPRISE");
-        addSidebarButton(sidebar, "📊 Admin & Analytics", "Admin");
+        if (currentUser.isAdmin()) {
+            sidebar.add(Box.createRigidArea(new Dimension(0, 20)));
+            addNavCategory(sidebar, "ENTERPRISE");
+            addSidebarButton(sidebar, "📊 Admin & Analytics", "Admin");
+        }
 
         add(sidebar, BorderLayout.WEST);
         add(cardPanel, BorderLayout.CENTER);
@@ -234,10 +244,7 @@ public class HomePage extends JFrame {
     public static void testDatabaseConnection() {
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/utilise",
-                    "root",
-                    "Cupcakemahi")) {
+            try (Connection conn = DBConfig.getConnection()) {
                 System.out.println("705 Connected to the database!");
                 try (Statement stmt = conn.createStatement();
                         ResultSet rs = stmt.executeQuery("SELECT * FROM subjects")) {
@@ -258,10 +265,7 @@ public class HomePage extends JFrame {
         List<String> subjects = new ArrayList<>();
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC",
-                    "root",
-                    "Cupcakemahi")) {
+            try (Connection conn = DBConfig.getConnection()) {
                 String query = "SELECT DISTINCT s.name FROM subjects s " +
                         "JOIN semesters sem ON s.semester_id = sem.id " +
                         "WHERE sem.name = ?";
@@ -334,10 +338,7 @@ public class HomePage extends JFrame {
         String filepath = null;
         try {
             Class.forName("com.mysql.cj.jdbc.Driver");
-            try (Connection conn = DriverManager.getConnection(
-                    "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC",
-                    "root",
-                    "Cupcakemahi")) {
+            try (Connection conn = DBConfig.getConnection()) {
                 String query = "SELECT filepath FROM subjects WHERE name = ?";
                 try (PreparedStatement pstmt = conn.prepareStatement(query)) {
                     pstmt.setString(1, subjectName);
@@ -577,10 +578,7 @@ public class HomePage extends JFrame {
             List<Book> books = new ArrayList<>();
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
-                try (Connection conn = DriverManager.getConnection(
-                        "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC",
-                        "root",
-                        "Cupcakemahi")) {
+                try (Connection conn = DBConfig.getConnection()) {
                     String query = "SELECT * FROM books";
                     try (Statement stmt = conn.createStatement();
                             ResultSet rs = stmt.executeQuery(query)) {
@@ -608,10 +606,7 @@ public class HomePage extends JFrame {
         public static boolean addBook(Book book) {
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
-                try (Connection conn = DriverManager.getConnection(
-                        "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC",
-                        "root",
-                        "Cupcakemahi")) {
+                try (Connection conn = DBConfig.getConnection()) {
                     String query = "INSERT INTO books (title, author, subject, filepath, filesize, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)";
                     try (PreparedStatement pstmt = conn.prepareStatement(query)) {
                         pstmt.setString(1, book.title);
@@ -632,10 +627,7 @@ public class HomePage extends JFrame {
         public static boolean updateBook(Book book) {
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
-                try (Connection conn = DriverManager.getConnection(
-                        "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC",
-                        "root",
-                        "Cupcakemahi")) {
+                try (Connection conn = DBConfig.getConnection()) {
                     String query = "UPDATE books SET title = ?, author = ?, subject = ?, filepath = ?, filesize = ?, uploaded_by = ? WHERE id = ?";
                     try (PreparedStatement pstmt = conn.prepareStatement(query)) {
                         pstmt.setString(1, book.title);
@@ -657,10 +649,7 @@ public class HomePage extends JFrame {
         public static boolean deleteBook(int bookId) {
             try {
                 Class.forName("com.mysql.cj.jdbc.Driver");
-                try (Connection conn = DriverManager.getConnection(
-                        "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC",
-                        "root",
-                        "Cupcakemahi")) {
+                try (Connection conn = DBConfig.getConnection()) {
                     String query = "DELETE FROM books WHERE id = ?";
                     try (PreparedStatement pstmt = conn.prepareStatement(query)) {
                         pstmt.setInt(1, bookId);
@@ -685,6 +674,14 @@ public class HomePage extends JFrame {
             }
         }));
 
-        SwingUtilities.invokeLater(() -> new HomePage());
+        SwingUtilities.invokeLater(() -> {
+            LoginDialog loginDialog = new LoginDialog(null);
+            loginDialog.setVisible(true);
+            AuthenticatedUser user = loginDialog.getAuthenticatedUser();
+            if (user == null) {
+                System.exit(0);
+            }
+            new HomePage(user);
+        });
     }
 }

@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { computeDemandAlerts } from "@/lib/automation/fines";
 import { BookOpen, Users, AlertTriangle, DollarSign, BarChart3, TrendingUp } from "lucide-react";
@@ -7,6 +8,7 @@ import { runFineCalculationJob } from "@/app/actions/book";
 
 export default async function AdminDashboard() {
   const session = await auth();
+  if (!session) redirect("/login");
 
   const [
     totalBooks,
@@ -39,7 +41,7 @@ export default async function AdminDashboard() {
       },
       take: 20,
     }),
-    prisma.notification.count({ where: { userId: session!.user.id, read: false } }),
+    prisma.notification.count({ where: { userId: session.user.id, read: false } }),
   ]);
 
   const topBookDetails = await Promise.all(
@@ -63,7 +65,7 @@ export default async function AdminDashboard() {
   );
 
   return (
-    <DashboardLayout role="ADMIN" userName={session!.user.name} unreadCount={unread}>
+    <DashboardLayout role="ADMIN" userName={session.user.name} unreadCount={unread}>
       <div className="max-w-6xl">
         <h1 className="text-2xl font-serif font-bold text-slate-800 mb-1">Admin Analytics</h1>
         <p className="text-slate-500 mb-8">System-wide library performance and insights.</p>
@@ -122,7 +124,7 @@ export default async function AdminDashboard() {
           </section>
         )}
 
-        <form action={runFineCalculationJob} className="bg-white rounded-xl border p-6">
+        <form action={runFineCalculationJobForForm} className="bg-white rounded-xl border p-6">
           <h2 className="font-semibold mb-2">Automation Jobs</h2>
           <p className="text-sm text-slate-500 mb-4">Run nightly fine calculation manually for demo.</p>
           <button type="submit" className="bg-primary text-white px-5 py-2 rounded-lg text-sm font-medium">
@@ -132,6 +134,15 @@ export default async function AdminDashboard() {
       </div>
     </DashboardLayout>
   );
+}
+
+// <form action={...}> requires a function returning void | Promise<void>.
+// runFineCalculationJob itself returns { success, updated } for callers that
+// want that info (e.g. a client component using useActionState), so we wrap
+// it here rather than changing its signature.
+async function runFineCalculationJobForForm() {
+  "use server";
+  await runFineCalculationJob();
 }
 
 function KPICard({ icon, label, value, bg }: { icon: React.ReactNode; label: string; value: string; bg: string }) {

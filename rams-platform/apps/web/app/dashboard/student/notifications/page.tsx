@@ -1,12 +1,14 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { markNotificationsRead } from "@/app/actions/book";
 
 export default async function NotificationsPage() {
   const session = await auth();
-  const userId = session!.user.id;
-  const role = session!.user.role;
+  if (!session) redirect("/login");
+  const userId = session.user.id;
+  const role = session.user.role;
 
   const notifications = await prisma.notification.findMany({
     where: { userId },
@@ -17,7 +19,7 @@ export default async function NotificationsPage() {
   await markNotificationsRead();
 
   return (
-    <DashboardLayout role={role} userName={session!.user.name} unreadCount={0}>
+    <DashboardLayout role={role} userName={session.user.name} unreadCount={0}>
       <div className="max-w-2xl">
         <h1 className="text-2xl font-serif font-bold mb-6">Notifications</h1>
         {notifications.length === 0 ? (

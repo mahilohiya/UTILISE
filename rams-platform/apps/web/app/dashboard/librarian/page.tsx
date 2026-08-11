@@ -1,5 +1,6 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { BookOpen, ScanBarcode, Send } from "lucide-react";
 import Link from "next/link";
@@ -7,6 +8,7 @@ import { remindAction } from "./actions";
 
 export default async function LibrarianDashboard() {
   const session = await auth();
+  if (!session) redirect("/login");
 
   const overdueBooks = await prisma.issueRecord.findMany({
     where: { status: "OVERDUE" },
@@ -19,11 +21,11 @@ export default async function LibrarianDashboard() {
   });
 
   const unread = await prisma.notification.count({
-    where: { userId: session!.user.id, read: false },
+    where: { userId: session.user.id, read: false },
   });
 
   return (
-    <DashboardLayout role="LIBRARIAN" userName={session!.user.name} unreadCount={unread}>
+    <DashboardLayout role="LIBRARIAN" userName={session.user.name} unreadCount={unread}>
       <div className="max-w-6xl">
         <h1 className="text-2xl font-serif font-bold text-slate-800 mb-1">Librarian Console</h1>
         <p className="text-slate-500 mb-8">Manage issuance, returns, and overdue tracking.</p>

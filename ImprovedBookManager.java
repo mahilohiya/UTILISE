@@ -7,10 +7,6 @@ import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
 
 public class ImprovedBookManager extends JFrame {
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/utilise?useSSL=false&serverTimezone=UTC";
-    private static final String DB_USER = "root";
-    private static final String DB_PASSWORD = "Cupcakemahi";
-
     public ImprovedBookManager() {
         initializeDatabase();
         setTitle("Book Management System");
@@ -76,6 +72,7 @@ public class ImprovedBookManager extends JFrame {
                 title VARCHAR(255) NOT NULL,
                 author VARCHAR(255) DEFAULT 'Unknown',
                 subject VARCHAR(255),
+                subject_id INT,
                 filepath VARCHAR(500) NOT NULL,
                 filesize BIGINT DEFAULT 0,
                 uploaded_by VARCHAR(255) DEFAULT 'System',
@@ -102,15 +99,71 @@ public class ImprovedBookManager extends JFrame {
                 stmt.execute(createSemestersTable);
                 stmt.execute(createSubjectsTable);
                 stmt.execute(createBooksTable);
-                
-                
+
+                migrateSubjectIdColumn(conn);
                 insertDefaultData(conn);
-                
+                backfillSubjectIds(conn);
+
                 System.out.println("Database initialized successfully");
             }
         } catch (SQLException e) {
             System.err.println("Database initialization error: " + e.getMessage());
-            
+
+        }
+    }
+
+    /**
+     * Adds books.subject_id (and its FK to subjects.id) for databases created
+     * before this column existed. Safe to run every startup - checks
+     * information_schema first so it never tries to add the same column or
+     * constraint twice.
+     */
+    private void migrateSubjectIdColumn(Connection conn) throws SQLException {
+        boolean columnExists;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT COUNT(*) FROM information_schema.COLUMNS " +
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'books' AND COLUMN_NAME = 'subject_id'")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                columnExists = rs.getInt(1) > 0;
+            }
+        }
+        if (!columnExists) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE books ADD COLUMN subject_id INT");
+            }
+        }
+
+        boolean fkExists;
+        try (PreparedStatement ps = conn.prepareStatement(
+                "SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS " +
+                        "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'books' AND CONSTRAINT_NAME = 'fk_books_subject_id'")) {
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                fkExists = rs.getInt(1) > 0;
+            }
+        }
+        if (!fkExists) {
+            try (Statement stmt = conn.createStatement()) {
+                stmt.execute("ALTER TABLE books ADD CONSTRAINT fk_books_subject_id " +
+                        "FOREIGN KEY (subject_id) REFERENCES subjects(id)");
+            } catch (SQLException e) {
+                // Non-fatal: e.g. existing orphaned subject_id values would block this.
+                // The app still works via the legacy `subject` text column either way.
+                System.err.println("Could not add subject_id FK constraint (non-fatal): " + e.getMessage());
+            }
+        }
+    }
+
+    /** Fills in subject_id for any book rows that only have the legacy free-text subject column set. */
+    private void backfillSubjectIds(Connection conn) throws SQLException {
+        String backfillQuery = "UPDATE books b JOIN subjects s ON s.name = b.subject " +
+                "SET b.subject_id = s.id WHERE b.subject_id IS NULL AND b.subject IS NOT NULL";
+        try (Statement stmt = conn.createStatement()) {
+            int updated = stmt.executeUpdate(backfillQuery);
+            if (updated > 0) {
+                System.out.println("Backfilled subject_id for " + updated + " book(s)");
+            }
         }
     }
     
@@ -170,9 +223,8 @@ public class ImprovedBookManager extends JFrame {
     
     public static Connection getConnection() throws SQLException {
         try {
-            Class.forName("com.mysql.cj.jdbc.Driver");
-            return DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
-        } catch (ClassNotFoundException e) {
+            return DBConfig.getConnection();
+        } catch (Exception e) {
             throw new SQLException("MySQL driver not found", e);
         }
     }
@@ -761,17 +813,24 @@ public class ImprovedBookManager extends JFrame {
         }
         
         public static boolean addBook(Book book) {
-            String query = "INSERT INTO books (title, author, subject, filepath, filesize, uploaded_by) VALUES (?, ?, ?, ?, ?, ?)";
+            String query = "INSERT INTO books (title, author, subject, subject_id, filepath, filesize, uploaded_by) VALUES (?, ?, ?, ?, ?, ?, ?)";
             
             try (Connection conn = getConnection();
                  PreparedStatement pstmt = conn.prepareStatement(query)) {
                 
+                Integer subjectId = resolveOrCreateSubjectId(conn, book.subject);
+
                 pstmt.setString(1, book.title);
                 pstmt.setString(2, book.author);
                 pstmt.setString(3, book.subject);
-                pstmt.setString(4, book.filepath);
-                pstmt.setLong(5, book.filesize);
-                pstmt.setString(6, book.uploadedBy);
+                if (subjectId != null) {
+                    pstmt.setInt(4, subjectId);
+                } else {
+                    pstmt.setNull(4, java.sql.Types.INTEGER);
+                }
+                pstmt.setString(5, book.filepath);
+                pstmt.setLong(6, book.filesize);
+                pstmt.setString(7, book.uploadedBy);
                 
                 return pstmt.executeUpdate() > 0;
             } catch (SQLException e) {
@@ -779,19 +838,57 @@ public class ImprovedBookManager extends JFrame {
                 return false;
             }
         }
+
+        /**
+         * Finds the subjects.id matching this subject name, or creates a new
+         * subjects row (with no semester assigned) if none exists yet.
+         * Returns null only if subjectName itself is null/blank.
+         */
+        private static Integer resolveOrCreateSubjectId(Connection conn, String subjectName) throws SQLException {
+            if (subjectName == null || subjectName.trim().isEmpty()) {
+                return null;
+            }
+            String lookup = "SELECT id FROM subjects WHERE name = ?";
+            try (PreparedStatement ps = conn.prepareStatement(lookup)) {
+                ps.setString(1, subjectName);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return rs.getInt("id");
+                    }
+                }
+            }
+            String insert = "INSERT INTO subjects (name) VALUES (?)";
+            try (PreparedStatement ps = conn.prepareStatement(insert, Statement.RETURN_GENERATED_KEYS)) {
+                ps.setString(1, subjectName);
+                ps.executeUpdate();
+                try (ResultSet keys = ps.getGeneratedKeys()) {
+                    if (keys.next()) {
+                        return keys.getInt(1);
+                    }
+                }
+            }
+            return null;
+        }
         
         public static boolean updateBook(Book book) {
-            String query = "UPDATE books SET title = ?, author = ?, subject = ?, filepath = ?, filesize = ? WHERE id = ?";
+            String query = "UPDATE books SET title = ?, author = ?, subject = ?, subject_id = ?, filepath = ?, filesize = ? WHERE id = ?";
             
             try (Connection conn = getConnection();
                  PreparedStatement pstmt = conn.prepareStatement(query)) {
                 
+                Integer subjectId = resolveOrCreateSubjectId(conn, book.subject);
+
                 pstmt.setString(1, book.title);
                 pstmt.setString(2, book.author);
                 pstmt.setString(3, book.subject);
-                pstmt.setString(4, book.filepath);
-                pstmt.setLong(5, book.filesize);
-                pstmt.setInt(6, book.id);
+                if (subjectId != null) {
+                    pstmt.setInt(4, subjectId);
+                } else {
+                    pstmt.setNull(4, java.sql.Types.INTEGER);
+                }
+                pstmt.setString(5, book.filepath);
+                pstmt.setLong(6, book.filesize);
+                pstmt.setInt(7, book.id);
                 
                 return pstmt.executeUpdate() > 0;
             } catch (SQLException e) {

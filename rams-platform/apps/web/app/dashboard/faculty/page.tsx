@@ -1,13 +1,15 @@
 import DashboardLayout from "@/components/DashboardLayout";
 import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import Link from "next/link";
 import { BookOpen } from "lucide-react";
 
 export default async function FacultyDashboard() {
   const session = await auth();
+  if (!session) redirect("/login");
   const dept = await prisma.user.findUnique({
-    where: { id: session!.user.id },
+    where: { id: session.user.id },
     include: { department: true },
   });
 
@@ -20,7 +22,7 @@ export default async function FacultyDashboard() {
     : [];
 
   return (
-    <DashboardLayout role="FACULTY" userName={session!.user.name}>
+    <DashboardLayout role="FACULTY" userName={session.user.name}>
       <div className="max-w-6xl">
         <h1 className="text-2xl font-serif font-bold mb-2">Faculty Portal</h1>
         <p className="text-slate-500 mb-8">
