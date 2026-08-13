@@ -4,6 +4,7 @@ import * as argon2 from "argon2";
 import { prisma } from "@/lib/db";
 import { checkRateLimit } from "@/lib/rate-limit";
 import type { Role } from "@/lib/rbac";
+import { logger } from "@/lib/logger";
 import { authConfig } from "./auth.config";
 
 const ALLOWED_DOMAIN = process.env.ALLOWED_EMAIL_DOMAIN ?? "msrit.edu";
@@ -38,23 +39,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const email = credentials.email as string;
         const domain = email.split("@")[1];
         if (domain !== ALLOWED_DOMAIN) {
+          logger.warn({ email, domain }, "login rejected: disallowed email domain");
           throw new Error(`Only @${ALLOWED_DOMAIN} emails are allowed.`);
         }
 
         const ip = "login";
         const allowed = await checkRateLimit(ip);
         if (!allowed) {
+          logger.warn({ email }, "login rejected: rate limit exceeded");
           throw new Error("Too many login attempts. Please try again later.");
         }
 
         const user = await prisma.user.findUnique({ where: { email } });
-        if (!user) throw new Error("Invalid credentials.");
+        if (!user) {
+          logger.warn({ email }, "login failed: no user with this email");
+          throw new Error("Invalid credentials.");
+        }
 
         const isValid = await argon2.verify(
           user.passwordHash,
           credentials.password as string
         );
-        if (!isValid) throw new Error("Invalid credentials.");
+        if (!isValid) {
+          logger.warn({ userId: user.id }, "login failed: incorrect password");
+          throw new Error("Invalid credentials.");
+        }
 
         await prisma.auditLog.create({
           data: {
@@ -64,6 +73,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             entityId: user.id,
           },
         });
+        logger.info({ userId: user.id, role: user.role }, "login succeeded");
 
         return {
           id: user.id,

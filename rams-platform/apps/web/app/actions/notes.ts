@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { extractPdfText } from "@/lib/ai/pdf-text";
 import { generateNotesFromText } from "@/lib/ai/notes-generator";
 import { revalidatePath } from "next/cache";
+import { logger } from "@/lib/logger";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB
 
@@ -50,12 +51,15 @@ export async function generateNotesFromUpload(formData: FormData): Promise<{ not
         vivaQuestions: generated.vivaQuestions,
       },
     });
+    logger.info({ noteId: note.id, userId: session.user.id }, "notes generation succeeded");
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error during generation.";
+    logger.error({ noteId: note.id, userId: session.user.id, err: message }, "notes generation failed");
     await prisma.generatedNote.update({
       where: { id: note.id },
       data: {
         status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Unknown error during generation.",
+        errorMessage: message,
       },
     });
   }
@@ -112,12 +116,15 @@ export async function generateNotesFromBook(bookId: string): Promise<{ noteId: s
         vivaQuestions: generated.vivaQuestions,
       },
     });
+    logger.info({ noteId: note.id, userId: session.user.id }, "notes generation succeeded");
   } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error during generation.";
+    logger.error({ noteId: note.id, userId: session.user.id, err: message }, "notes generation failed");
     await prisma.generatedNote.update({
       where: { id: note.id },
       data: {
         status: "FAILED",
-        errorMessage: error instanceof Error ? error.message : "Unknown error during generation.",
+        errorMessage: message,
       },
     });
   }

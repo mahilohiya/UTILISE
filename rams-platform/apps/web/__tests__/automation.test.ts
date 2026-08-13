@@ -19,7 +19,7 @@ describe("calculateFine", () => {
 
   it("caps at maxFineCap", () => {
     const due = new Date("2026-01-01");
-    const returned = new Date("2026-03-01");
+    const returned = new Date("2026-06-01"); // 151 days - 2 grace = 149 billable days * $5 = $745, comfortably over the $500 cap
     expect(calculateFine(due, returned, rule)).toBe(500);
   });
 });

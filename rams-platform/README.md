@@ -53,9 +53,30 @@ flowchart TB
 
 ### DevOps & Reliability
 - Health check endpoint (`/api/health`)
-- Docker Compose for local infra
-- CI pipeline with Postgres service container
+- Docker Compose for local infra, multi-stage production `Dockerfile` for the web app
+- Structured logging (pino) for auth events and AI generation jobs
+- CI pipeline with Postgres service container, pnpm version pinned to match the lockfile
 - `.env.example` with all configuration
+
+## Production Deployment
+
+Build and run the web app as a standalone container (from the repo root, not `apps/web`):
+
+```bash
+docker build -f apps/web/Dockerfile -t rams-web .
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgresql://user:pass@your-db-host:5432/rams_db" \
+  -e NEXTAUTH_SECRET="a-long-random-string" \
+  -e NEXTAUTH_URL="https://your-domain.com" \
+  -e GEMINI_API_KEY="your-key" \
+  rams-web
+```
+
+Notes:
+- The Prisma client is generated at build time inside the image, so no separate `db:generate` step is needed at runtime - but you do need to run `pnpm db:push` (or a real migration) against your production database at least once before first boot.
+- `Ratelimit` for login attempts uses Upstash Redis if `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` are set; otherwise it falls back to an in-memory limiter. The in-memory fallback is per-instance and resets on restart - fine for a single-instance deploy or demo, not sufficient if you run multiple instances behind a load balancer without shared Redis.
+- Logs are plain JSON in production (`NODE_ENV=production`), suitable for piping into most log aggregators (CloudWatch, Datadog, etc.) as-is.
+- I wasn't able to run an actual `docker build` in my own environment to verify this Dockerfile end-to-end (no Docker daemon available there) - it follows Next.js's documented standalone-output pattern, but treat your first real build as the real test, same way we caught real bugs by actually running `pnpm install`/`typecheck`/`test` earlier in this project.
 
 ## Quick Start
 
