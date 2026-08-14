@@ -39,3 +39,4 @@ target/
 
 # macOS
 .DS_Store
+rams-platform/apps/web/.env.local

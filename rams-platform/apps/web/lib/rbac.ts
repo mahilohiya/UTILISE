@@ -30,6 +30,10 @@ export function can(user: UserContext | null | undefined, action: Action, resour
             break;
         case "AuditLog":
             return user.role === "ADMIN";
+        case "Fine":
+            if (action === "read") return ["LIBRARIAN", "ADMIN"].includes(user.role);
+            if (action === "update") return user.role === "ADMIN";
+            break;
     }
     return false;
 }

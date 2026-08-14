@@ -20,6 +20,14 @@ flowchart TB
   Queue --> DB
 ```
 
+## MCP Server
+
+`apps/mcp-server` exposes the book catalog as MCP tools, so any MCP-compatible
+AI client (Claude Desktop, Claude Code, etc.) can search and query the real
+catalog directly in a normal chat conversation - no custom integration code
+needed on the client side. See `apps/mcp-server/README.md` for setup and
+Claude Desktop connection instructions.
+
 ## Tech Stack
 
 | Tool | Why |
@@ -60,23 +68,69 @@ flowchart TB
 
 ## Production Deployment
 
-Build and run the web app as a standalone container (from the repo root, not `apps/web`):
+> **Important fix included in this update:** the CI/CD workflow files were
+> previously located at `rams-platform/.github/workflows/`, which GitHub
+> Actions never reads - it only picks up workflows from `.github/workflows/`
+> at the actual repository root. That means CI was likely never running at
+> all. This update moves them to the correct location
+> (`UTILISE/.github/workflows/`) with paths adjusted for this repo's nested
+> layout. See "Apply this update" below for the exact commands to relocate
+> them in your own clone.
+
+### Option A - self-host on a VPS with Docker Compose (cheapest, most control)
+
+Works on any $5-6/mo VPS (DigitalOcean, Hetzner, Linode, etc.) with Docker installed:
 
 ```bash
-docker build -f apps/web/Dockerfile -t rams-web .
-docker run -p 3000:3000 \
-  -e DATABASE_URL="postgresql://user:pass@your-db-host:5432/rams_db" \
-  -e NEXTAUTH_SECRET="a-long-random-string" \
-  -e NEXTAUTH_URL="https://your-domain.com" \
-  -e GEMINI_API_KEY="your-key" \
-  rams-web
+git clone https://github.com/mahilohiya/UTILISE.git
+cd UTILISE/rams-platform
+cp .env.production.example .env.production
+nano .env.production   # fill in real values - see comments in the file
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
 ```
 
-Notes:
-- The Prisma client is generated at build time inside the image, so no separate `db:generate` step is needed at runtime - but you do need to run `pnpm db:push` (or a real migration) against your production database at least once before first boot.
-- `Ratelimit` for login attempts uses Upstash Redis if `UPSTASH_REDIS_REST_URL`/`UPSTASH_REDIS_REST_TOKEN` are set; otherwise it falls back to an in-memory limiter. The in-memory fallback is per-instance and resets on restart - fine for a single-instance deploy or demo, not sufficient if you run multiple instances behind a load balancer without shared Redis.
-- Logs are plain JSON in production (`NODE_ENV=production`), suitable for piping into most log aggregators (CloudWatch, Datadog, etc.) as-is.
-- I wasn't able to run an actual `docker build` in my own environment to verify this Dockerfile end-to-end (no Docker daemon available there) - it follows Next.js's documented standalone-output pattern, but treat your first real build as the real test, same way we caught real bugs by actually running `pnpm install`/`typecheck`/`test` earlier in this project.
+This runs the app, Postgres, and Redis together on one machine. Postgres/Redis
+are not exposed to the internet (internal Docker network only) - only the
+app's port 3000 is, and you should put a reverse proxy (Caddy is the
+simplest - one line of config for automatic HTTPS) or your cloud provider's
+load balancer in front of it for TLS.
+
+Push the schema once, before first boot:
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app sh -c "cd packages/database && npx prisma db push"
+```
+
+### Option B - Railway or Render (no server management)
+
+Both platforms can build directly from the `apps/web/Dockerfile` in this repo:
+1. Connect your GitHub repo (`mahilohiya/UTILISE`)
+2. Set the **root directory** to `rams-platform` and the **Dockerfile path** to `apps/web/Dockerfile`
+3. Add a managed Postgres and Redis addon (both platforms offer these)
+4. Set the same environment variables as `.env.production.example`
+5. Deploy - both platforms auto-detect the `/api/health` endpoint for health checks
+
+### Option C - automatic image builds via GitHub Actions
+
+Once the workflow files are at the repo root (see the fix note above), every
+push to `main` that touches `rams-platform/apps/web/**` automatically builds
+and pushes a Docker image to `ghcr.io/mahilohiya/UTILISE:latest` - no Docker
+Hub account needed, it uses your existing GitHub auth. Pull and run it
+anywhere:
+```bash
+docker pull ghcr.io/mahilohiya/UTILISE:latest
+```
+
+### Apply this update to your local clone
+
+```bash
+# Move the workflow files to the real repo root
+mkdir -p .github/workflows
+git mv rams-platform/.github/workflows/ci.yml .github/workflows/ci.yml
+rm -rf rams-platform/.github
+```
+Then copy in the new/changed files listed in the apply script from this
+batch (docker-compose.prod.yml, .env.production.example, updated README,
+and the new deploy.yml).
 
 ## Quick Start
 

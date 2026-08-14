@@ -23,17 +23,25 @@ const NAV_ITEMS: Record<string, { label: string; icon: React.ReactNode; href: st
     { label: "Overview", icon: <LayoutDashboard className="h-5 w-5" />, href: "/dashboard/student" },
     { label: "Catalog", icon: <Library className="h-5 w-5" />, href: "/catalog" },
     { label: "Smart Notes", icon: <Sparkles className="h-5 w-5" />, href: "/dashboard/notes" },
-    { label: "Notifications", icon: <Bell className="h-5 w-5" />, href: "/dashboard/student/notifications" },
+    { label: "Notifications", icon: <Bell className="h-5 w-5" />, href: "/dashboard/notifications" },
+  ],
+  FACULTY: [
+    { label: "Overview", icon: <LayoutDashboard className="h-5 w-5" />, href: "/dashboard/faculty" },
+    { label: "Catalog", icon: <Library className="h-5 w-5" />, href: "/catalog" },
+    { label: "Smart Notes", icon: <Sparkles className="h-5 w-5" />, href: "/dashboard/notes" },
+    { label: "Notifications", icon: <Bell className="h-5 w-5" />, href: "/dashboard/notifications" },
   ],
   LIBRARIAN: [
     { label: "Overview", icon: <LayoutDashboard className="h-5 w-5" />, href: "/dashboard/librarian" },
     { label: "Issue / Return", icon: <ClipboardList className="h-5 w-5" />, href: "/dashboard/librarian/issue" },
-    { label: "Overdue", icon: <Bell className="h-5 w-5" />, href: "/dashboard/librarian" },
+    { label: "Catalog", icon: <Library className="h-5 w-5" />, href: "/catalog" },
+    { label: "Notifications", icon: <Bell className="h-5 w-5" />, href: "/dashboard/notifications" },
   ],
   ADMIN: [
-    { label: "Overview", icon: <LayoutDashboard className="h-5 w-5" />, href: "/dashboard/admin" },
     { label: "Analytics", icon: <BarChart3 className="h-5 w-5" />, href: "/dashboard/admin" },
+    { label: "Catalog", icon: <Library className="h-5 w-5" />, href: "/catalog" },
     { label: "Settings", icon: <Settings className="h-5 w-5" />, href: "/dashboard/admin/settings" },
+    { label: "Notifications", icon: <Bell className="h-5 w-5" />, href: "/dashboard/notifications" },
   ],
 };
 
@@ -100,7 +108,7 @@ export default function DashboardLayout({
             <span>Search catalog...</span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href={`/dashboard/${role.toLowerCase()}/notifications`} className="relative p-2 rounded-lg hover:bg-slate-50">
+            <Link href="/dashboard/notifications" className="relative p-2 rounded-lg hover:bg-slate-50">
               <Bell className="h-5 w-5 text-slate-500" />
               {unreadCount > 0 && (
                 <span className="absolute -top-0.5 -right-0.5 h-4 w-4 bg-red-500 rounded-full text-[10px] font-bold text-white flex items-center justify-center">

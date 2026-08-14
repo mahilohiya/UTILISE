@@ -221,7 +221,7 @@ export async function markNotificationsRead() {
     data: { read: true },
   });
 
-  revalidatePath("/dashboard/student/notifications");
+  revalidatePath("/dashboard/notifications");
   return { success: true };
 }
 

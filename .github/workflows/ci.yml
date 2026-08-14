@@ -1,15 +1,31 @@
 name: CI
 
+# This file must live at the repository root (UTILISE/.github/workflows/) to
+# be picked up by GitHub Actions at all - it was previously nested inside
+# rams-platform/.github/workflows/, which GitHub Actions never reads,
+# meaning CI has not actually been running. All steps below use
+# working-directory: rams-platform since the actual Node/pnpm project lives
+# in that subfolder of this repo (the root also contains the separate Java
+# utilISE desktop app).
+
 on:
   push:
     branches: ["main"]
+    paths:
+      - "rams-platform/**"
   pull_request:
     branches: ["main"]
+    paths:
+      - "rams-platform/**"
+
+defaults:
+  run:
+    working-directory: rams-platform
 
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-    
+
     services:
       postgres:
         image: postgres:15-alpine
@@ -52,7 +68,7 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('rams-platform/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 

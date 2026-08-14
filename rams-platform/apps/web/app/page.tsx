@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { Search, BookOpen, Users, ArrowRight } from "lucide-react";
+import { Search, BookOpen, Users, ArrowRight, User } from "lucide-react";
 import { prisma } from "@/lib/db";
+import { auth } from "@/auth";
 
 async function getStats() {
   const [bookStats, studentCount, deptCount] = await Promise.all([
@@ -18,6 +19,7 @@ async function getStats() {
 
 export default async function LandingPage() {
   const stats = await getStats();
+  const session = await auth();
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
@@ -30,16 +32,26 @@ export default async function LandingPage() {
           <Link href="/catalog" className="hover:text-secondary transition-colors">
             Catalog
           </Link>
-          <Link href="/login" className="hover:text-secondary transition-colors">
+          <Link href={session ? "/dashboard" : "/login"} className="hover:text-secondary transition-colors">
             Dashboard
           </Link>
         </nav>
-        <Link
-          href="/login"
-          className="bg-secondary text-secondary-foreground px-5 py-2 rounded-md font-medium hover:bg-secondary/90 transition-colors"
-        >
-          Sign In
-        </Link>
+        {session ? (
+          <Link
+            href="/dashboard"
+            className="flex items-center gap-2 bg-secondary text-secondary-foreground px-5 py-2 rounded-md font-medium hover:bg-secondary/90 transition-colors"
+          >
+            <User className="h-4 w-4" />
+            {session.user.name}
+          </Link>
+        ) : (
+          <Link
+            href="/login"
+            className="bg-secondary text-secondary-foreground px-5 py-2 rounded-md font-medium hover:bg-secondary/90 transition-colors"
+          >
+            Sign In
+          </Link>
+        )}
       </header>
 
       <main className="flex-1 flex flex-col items-center justify-center text-center px-4 py-20 bg-gradient-to-b from-primary/5 to-transparent">
