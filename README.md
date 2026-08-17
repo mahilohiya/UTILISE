@@ -39,6 +39,8 @@ Open [http://localhost:3000](http://localhost:3000) — demo login: `admin@msrit
 | Overdue tracking | Librarian dashboard, or log in as `student@msrit.edu` |
 | Smart Notes (AI) | Student/Faculty → **Smart Notes** (needs `GEMINI_API_KEY`) |
 | Issue / Return | Librarian → **Issue / Return** |
+| Book requests | Student/Faculty dashboard → **Request a Book**; Librarian → **Requests** |
+| Lost book reporting | Student dashboard → **Report Lost** on an issued book |
 
 See [`rams-platform/README.md`](rams-platform/README.md) for the full feature list (including what's implemented vs. planned).
 

@@ -41,6 +41,8 @@ What's actually in the codebase today — not aspirational.
 | **Semester-wise catalog** | `/catalog` — filter by department/semester, search by title/author/ISBN |
 | **Book reservations** | Catalog → Reserve button (queue with hold on return) |
 | **Issue / Return (barcode)** | Librarian → Issue / Return |
+| **Book requests (out-of-stock titles)** | Student/Faculty dashboard → Request a Book form; Librarian → **Requests** |
+| **Lost book reporting** | Student dashboard → **Report Lost** on an issued book |
 | **Fine calculation** | Admin → Analytics → **Run Fine Calculation** button |
 | **Fine rules (grace period, per-day rate, cap)** | Admin → **Settings** |
 | **Overdue tracking + reminders** | Librarian dashboard → Remind button |
@@ -53,13 +55,6 @@ What's actually in the codebase today — not aspirational.
 | **MCP catalog server** | `apps/mcp-server/` — see its README |
 | **Health check** | `GET /api/health` |
 | **CI pipeline** | `.github/workflows/ci.yml` at repo root |
-
-### Database schema only (no UI yet)
-
-These models exist in Prisma but have no pages or server actions wired up:
-
-- `BookRequest` — out-of-stock title requests
-- `LostBookClaim` — lost book workflow
 
 ### Planned / not implemented
 
