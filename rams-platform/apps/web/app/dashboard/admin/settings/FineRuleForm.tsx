@@ -35,7 +35,7 @@ export default function FineRuleForm({ fineRule }: { fineRule: FineRule }) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Fine per day overdue ($)
+          Fine per day overdue (₹)
         </label>
         <input
           type="number"
@@ -62,7 +62,7 @@ export default function FineRuleForm({ fineRule }: { fineRule: FineRule }) {
 
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-1">
-          Maximum fine cap per book ($)
+          Maximum fine cap per book (₹)
         </label>
         <input
           type="number"

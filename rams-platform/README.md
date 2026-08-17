@@ -1,6 +1,6 @@
 # RAMS — Ramaiah Automated Management System
 
-Full-stack campus automation platform for M.S. Ramaiah Institute of Technology: semester-wise library management, automated fine/reservation workflows, RBAC, and search — built with Next.js 15, PostgreSQL, Prisma, Redis, and Docker.
+Full-stack campus library portal for M.S. Ramaiah Institute of Technology: semester-wise catalog, role-based dashboards, fine automation, reservations, and AI Smart Notes — built with Next.js 15, PostgreSQL, Prisma, Redis, and Docker.
 
 ## Architecture
 
@@ -10,127 +10,65 @@ flowchart TB
   API[Server Actions + API Routes]
   DB[(PostgreSQL + Prisma)]
   Redis[(Redis)]
-  Queue[BullMQ Workers]
   Auth[NextAuth.js v5]
   Client --> API
   API --> Auth
   API --> DB
   API --> Redis
-  Queue --> Redis
-  Queue --> DB
 ```
-
-## MCP Server
-
-`apps/mcp-server` exposes the book catalog as MCP tools, so any MCP-compatible
-AI client (Claude Desktop, Claude Code, etc.) can search and query the real
-catalog directly in a normal chat conversation - no custom integration code
-needed on the client side. See `apps/mcp-server/README.md` for setup and
-Claude Desktop connection instructions.
 
 ## Tech Stack
 
-| Tool | Why |
-|------|-----|
-| **Turborepo + pnpm** | Monorepo with shared types and cached builds |
-| **Next.js 15** | SSR, App Router, server actions — single deploy target |
-| **PostgreSQL + Prisma** | Relational model for issues, reservations, fines |
-| **NextAuth.js v5** | JWT sessions, credentials auth, RBAC integration |
-| **Redis + BullMQ** | Rate limiting, background jobs (fines, reminders) |
-| **TanStack Query** | Server state, optimistic updates |
-| **Tailwind + shadcn-style tokens** | MSRIT maroon/gold institutional branding |
+| Tool | Purpose |
+|------|---------|
+| **Turborepo + pnpm** | Monorepo with shared packages |
+| **Next.js 15** | App Router, server actions |
+| **PostgreSQL + Prisma** | Issues, reservations, fines, audit log |
+| **NextAuth.js v5** | JWT sessions, credentials auth, RBAC |
+| **Redis** | Rate limiting (Upstash optional) |
+| **Tailwind** | MSRIT maroon/gold branding |
 | **Vitest** | Unit tests for fines, RBAC, demand alerts |
-| **GitHub Actions** | CI: lint, typecheck, test, build |
 | **Docker Compose** | Local Postgres + Redis |
 
-## Features
+## Feature status
 
-### Core Library Automation
-- Semester-wise book catalog with department/semester filters
-- Book issue/return via barcode
-- Reservation queue with 24-hour hold on return
-- Automated fine calculation (grace period, cap)
-- Role-based dashboards (Student, Faculty, Librarian, Admin)
+What's actually in the codebase today — not aspirational.
 
-### Real-Life Problem Solving
-- Lost book workflow (schema + claims)
-- Digital access logging for copyright compliance
-- Book request pipeline for out-of-stock titles
-- High-demand / low-stock alerts for librarians
-- Audit log for login and critical actions
+### Implemented and usable
 
-### DevOps & Reliability
-- Health check endpoint (`/api/health`)
-- Docker Compose for local infra, multi-stage production `Dockerfile` for the web app
-- Structured logging (pino) for auth events and AI generation jobs
-- CI pipeline with Postgres service container, pnpm version pinned to match the lockfile
-- `.env.example` with all configuration
+| Feature | Where to find it |
+|---------|------------------|
+| **Semester-wise catalog** | `/catalog` — filter by department/semester, search by title/author/ISBN |
+| **Book reservations** | Catalog → Reserve button (queue with hold on return) |
+| **Issue / Return (barcode)** | Librarian → Issue / Return |
+| **Fine calculation** | Admin → Analytics → **Run Fine Calculation** button |
+| **Fine rules (grace period, per-day rate, cap)** | Admin → **Settings** |
+| **Overdue tracking + reminders** | Librarian dashboard → Remind button |
+| **Demand / low-stock alerts** | Admin → Analytics (amber alert section) |
+| **Role-based dashboards** | Student, Faculty, Librarian, Admin — each with tailored views |
+| **Notifications** | All roles → Notifications bell |
+| **Smart Notes Generator** | Student/Faculty → Smart Notes (requires `GEMINI_API_KEY`) |
+| **Audit log** | Written on login and critical actions |
+| **Digital access logging** | Server action on digital book access |
+| **MCP catalog server** | `apps/mcp-server/` — see its README |
+| **Health check** | `GET /api/health` |
+| **CI pipeline** | `.github/workflows/ci.yml` at repo root |
 
-## Production Deployment
+### Database schema only (no UI yet)
 
-> **Important fix included in this update:** the CI/CD workflow files were
-> previously located at `rams-platform/.github/workflows/`, which GitHub
-> Actions never reads - it only picks up workflows from `.github/workflows/`
-> at the actual repository root. That means CI was likely never running at
-> all. This update moves them to the correct location
-> (`UTILISE/.github/workflows/`) with paths adjusted for this repo's nested
-> layout. See "Apply this update" below for the exact commands to relocate
-> them in your own clone.
+These models exist in Prisma but have no pages or server actions wired up:
 
-### Option A - self-host on a VPS with Docker Compose (cheapest, most control)
+- `BookRequest` — out-of-stock title requests
+- `LostBookClaim` — lost book workflow
 
-Works on any $5-6/mo VPS (DigitalOcean, Hetzner, Linode, etc.) with Docker installed:
+### Planned / not implemented
 
-```bash
-git clone https://github.com/mahilohiya/UTILISE.git
-cd UTILISE/rams-platform
-cp .env.production.example .env.production
-nano .env.production   # fill in real values - see comments in the file
-docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
-```
-
-This runs the app, Postgres, and Redis together on one machine. Postgres/Redis
-are not exposed to the internet (internal Docker network only) - only the
-app's port 3000 is, and you should put a reverse proxy (Caddy is the
-simplest - one line of config for automatic HTTPS) or your cloud provider's
-load balancer in front of it for TLS.
-
-Push the schema once, before first boot:
-```bash
-docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app sh -c "cd packages/database && npx prisma db push"
-```
-
-### Option B - Railway or Render (no server management)
-
-Both platforms can build directly from the `apps/web/Dockerfile` in this repo:
-1. Connect your GitHub repo (`mahilohiya/UTILISE`)
-2. Set the **root directory** to `rams-platform` and the **Dockerfile path** to `apps/web/Dockerfile`
-3. Add a managed Postgres and Redis addon (both platforms offer these)
-4. Set the same environment variables as `.env.production.example`
-5. Deploy - both platforms auto-detect the `/api/health` endpoint for health checks
-
-### Option C - automatic image builds via GitHub Actions
-
-Once the workflow files are at the repo root (see the fix note above), every
-push to `main` that touches `rams-platform/apps/web/**` automatically builds
-and pushes a Docker image to `ghcr.io/mahilohiya/UTILISE:latest` - no Docker
-Hub account needed, it uses your existing GitHub auth. Pull and run it
-anywhere:
-```bash
-docker pull ghcr.io/mahilohiya/UTILISE:latest
-```
-
-### Apply this update to your local clone
-
-```bash
-# Move the workflow files to the real repo root
-mkdir -p .github/workflows
-git mv rams-platform/.github/workflows/ci.yml .github/workflows/ci.yml
-rm -rf rams-platform/.github
-```
-Then copy in the new/changed files listed in the apply script from this
-batch (docker-compose.prod.yml, .env.production.example, updated README,
-and the new deploy.yml).
+| Feature | Notes |
+|---------|-------|
+| **Automated nightly fine job (BullMQ worker)** | Fine calc works via manual admin button; no background worker process exists yet |
+| **AI search assistant** | Landing page mentions it; search is keyword-based via `/api/search` |
+| **Email notifications** | Schema supports it; no SMTP/Resend integration wired |
+| **BullMQ reminder queue** | Librarian "Remind" creates in-app notifications only |
 
 ## Quick Start
 
@@ -146,18 +84,31 @@ cd rams-platform
 docker compose up -d
 ```
 
-### 2. Install & setup database
+### 2. Install and configure
 
 ```bash
 pnpm install
+cp .env.example .env
 cp .env.example apps/web/.env.local
-cp .env.example packages/database/.env   # set DATABASE_URL
+cp .env.example packages/database/.env
+```
 
+Edit `apps/web/.env.local` and add a free Gemini key for Smart Notes (optional):
+
+```bash
+GEMINI_API_KEY=your-key   # https://aistudio.google.com/app/apikey
+```
+
+### 3. Set up database
+
+```bash
 pnpm db:push
 pnpm db:seed
 ```
 
-### 3. Run development server
+Re-run `pnpm db:seed` any time to refresh demo overdue books and notifications.
+
+### 4. Run development server
 
 ```bash
 pnpm dev
@@ -165,7 +116,7 @@ pnpm dev
 
 Open [http://localhost:3000](http://localhost:3000)
 
-### Demo Accounts
+### Demo accounts
 
 | Email | Role | Password |
 |-------|------|----------|
@@ -174,36 +125,79 @@ Open [http://localhost:3000](http://localhost:3000)
 | librarian@msrit.edu | Librarian | password123 |
 | admin@msrit.edu | Admin | password123 |
 
-## Project Structure
+**Demo data after seeding:**
+- Student has 1 book due in 3 days, 1 book 5 days overdue (₹25 fine)
+- 1 pending reservation
+- 3 notifications
+
+### Testing the fine calculator
+
+1. Log in as `admin@msrit.edu`
+2. Go to **Analytics** (`/dashboard/admin`)
+3. Scroll to **Automation Jobs** → click **Run Fine Calculation**
+4. Log in as `student@msrit.edu` to see updated fines and notifications
+
+To change fine rules (grace period, rate, cap): Admin → **Settings**.
+
+## MCP Server
+
+`apps/mcp-server` exposes the book catalog as MCP tools for AI clients (Claude Desktop, etc.). See [`apps/mcp-server/README.md`](apps/mcp-server/README.md).
+
+## Project structure
 
 ```text
 rams-platform/
 ├── apps/web/                 # Next.js frontend + API routes
 │   ├── app/                  # App Router pages & server actions
-│   ├── components/           # UI components (DashboardLayout, Providers)
-│   ├── lib/                  # RBAC, automation, utils
+│   ├── components/           # DashboardLayout, Providers
+│   ├── lib/                  # RBAC, automation/fines, AI notes
 │   └── __tests__/            # Vitest unit tests
-├── packages/database/        # Prisma schema, migrations, seed
+├── apps/mcp-server/          # MCP catalog tools
+├── packages/database/        # Prisma schema, seed
 ├── docker-compose.yml        # Postgres + Redis
-└── .github/workflows/ci.yml  # CI pipeline
+└── apps/web/Dockerfile       # Production container
 ```
 
-## Scalability Notes
+## Production deployment
 
-- **Stateless JWT sessions** — horizontal API scaling without sticky sessions
-- **Redis caching** — session lookups, rate limiting, job queues
-- **Background jobs** — fine calculation decoupled from request path
-- **Department-scoped rows** — multi-tenancy ready for multiple colleges
-- **Read replicas** — Prisma supports read/write splitting at scale
-- **CDN** — book cover images via S3/R2 (schema supports `coverImageUrl`)
+### Option A — VPS with Docker Compose
+
+```bash
+git clone https://github.com/mahilohiya/UTILISE.git
+cd UTILISE/rams-platform
+cp .env.production.example .env.production
+# edit .env.production with real secrets
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --build
+```
+
+Push schema before first boot:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env.production run --rm app sh -c "cd packages/database && npx prisma db push"
+```
+
+Put Caddy or nginx in front of port 3000 for HTTPS.
+
+### Option B — Railway / Render
+
+1. Connect GitHub repo `mahilohiya/UTILISE`
+2. Set root directory to `rams-platform`, Dockerfile to `apps/web/Dockerfile`
+3. Add managed Postgres + Redis
+4. Set env vars from `.env.production.example`
+
+### Option C — GitHub Actions Docker image
+
+Pushes to `main` that touch `rams-platform/apps/web/**` build `ghcr.io/mahilohiya/UTILISE:latest` via `.github/workflows/deploy.yml`.
 
 ## Scripts
 
 ```bash
-pnpm dev          # Start dev server
+pnpm dev          # Start dev server (port 3000)
 pnpm build        # Production build
 pnpm test         # Run unit tests
-pnpm db:seed      # Seed demo data (40 books, 8 departments)
+pnpm typecheck    # TypeScript check
+pnpm db:seed      # Seed demo data (40 books, 8 departments, demo issues)
+pnpm db:push      # Push Prisma schema to DB
 pnpm db:migrate   # Run Prisma migrations
 ```
 

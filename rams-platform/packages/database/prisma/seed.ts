@@ -205,7 +205,15 @@ async function main() {
 
       await prisma.issueRecord.upsert({
         where: { id: "seed-issue-1" },
-        update: {},
+        update: {
+          bookCopyId: issuedCopy.id,
+          userId: studentId,
+          dueDate: dueSoon,
+          fineAmount: 0,
+          fineStatus: "NONE",
+          status: "ACTIVE",
+          returnDate: null,
+        },
         create: {
           id: "seed-issue-1",
           bookCopyId: issuedCopy.id,
@@ -222,7 +230,15 @@ async function main() {
       if (osCopy) {
         await prisma.issueRecord.upsert({
           where: { id: "seed-issue-2" },
-          update: {},
+          update: {
+            bookCopyId: osCopy.id,
+            userId: studentId,
+            dueDate: overdue,
+            fineAmount: 25,
+            fineStatus: "UNPAID",
+            status: "OVERDUE",
+            returnDate: null,
+          },
           create: {
             id: "seed-issue-2",
             bookCopyId: osCopy.id,

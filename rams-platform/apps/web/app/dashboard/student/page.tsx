@@ -5,13 +5,15 @@ import { prisma } from "@/lib/db";
 import { daysUntil, formatCurrency } from "@/lib/utils";
 import { BookOpen, Clock, AlertTriangle, DollarSign } from "lucide-react";
 import Link from "next/link";
+import BookRequestForm from "./BookRequestForm";
+import ReportLostButton from "./ReportLostButton";
 
 export default async function StudentDashboard() {
   const session = await auth();
   if (!session) redirect("/login");
   const userId = session.user.id;
 
-  const [user, issues, reservations, notifications] = await Promise.all([
+  const [user, issues, reservations, notifications, bookRequests] = await Promise.all([
     prisma.user.findUnique({
       where: { id: userId },
       include: { semester: true },
@@ -26,6 +28,11 @@ export default async function StudentDashboard() {
       include: { book: true },
     }),
     prisma.notification.count({ where: { userId, read: false } }),
+    prisma.bookRequest.findMany({
+      where: { userId },
+      orderBy: { requestedAt: "desc" },
+      take: 5,
+    }),
   ]);
 
   const totalFines = issues.reduce((sum, i) => sum + i.fineAmount, 0);
@@ -73,6 +80,7 @@ export default async function StudentDashboard() {
                     <th className="px-6 py-3">Due Date</th>
                     <th className="px-6 py-3">Status</th>
                     <th className="px-6 py-3">Fine</th>
+                    <th className="px-6 py-3"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -84,6 +92,9 @@ export default async function StudentDashboard() {
                         <td className="px-6 py-4 text-sm text-slate-500">{issue.dueDate.toLocaleDateString()}</td>
                         <td className="px-6 py-4"><DueBadge daysLeft={days} /></td>
                         <td className="px-6 py-4">{issue.fineAmount > 0 ? formatCurrency(issue.fineAmount) : "—"}</td>
+                        <td className="px-6 py-4">
+                          {issue.status !== "RETURNED" && <ReportLostButton issueId={issue.id} />}
+                        </td>
                       </tr>
                     );
                   })}
