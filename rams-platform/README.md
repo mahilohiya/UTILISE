@@ -2,6 +2,21 @@
 
 Full-stack campus automation platform for M.S. Ramaiah Institute of Technology: semester-wise library management, automated fine/reservation workflows, RBAC, and search — built with Next.js 15, PostgreSQL, Prisma, Redis, and Docker.
 
+## Project Status
+
+Status: Production-ready prototype / portfolio-grade campus platform
+
+Core modules currently in scope:
+- Library catalog and semester-based discovery
+- Book issue, return, and overdue management
+- Reservation queue and hold logic
+- Automated fine calculation and enforcement
+- Role-based dashboards for student, faculty, librarian, and admin
+- Lost book workflow and digital access logging
+- Search, auditability, and health checks
+
+This project is organized as a monorepo and is intended to be the active application in the repository, while deprecated legacy Java files remain archived separately.
+
 ## Architecture
 
 ```mermaid
