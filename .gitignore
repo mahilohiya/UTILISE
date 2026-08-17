@@ -1,0 +1,27 @@
+# OS files
+.DS_Store
+**/.DS_Store
+
+# Java build artifacts
+*.class
+
+# Node / Next.js / Turbo
+node_modules/
+.next/
+out/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Editor files
+.vscode/
+.idea/
+
+# Logs
+*.log
